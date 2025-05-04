@@ -1,0 +1,17 @@
+{
+  "name": "food-delivery-app",
+  "version": "1.0.0",
+  "description": "Food Delivery Application with React Frontend and Node.js Backend",
+  "scripts": {
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && npm run dev",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "mongodb": "^6.16.0"
+  }
+}
