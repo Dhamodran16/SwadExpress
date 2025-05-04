@@ -25,6 +25,8 @@ const OrderHistory: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
   useEffect(() => {
     const fetchOrders = async () => {
       const auth = getAuth();
@@ -38,7 +40,7 @@ const OrderHistory: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`http://localhost:5001/api/orders/user/${userId}`);
+        const res = await fetch(`${API_URL}/api/orders/user/${userId}`);
         if (!res.ok) throw new Error('Failed to fetch orders');
         const data = await res.json();
         setOrders(data);

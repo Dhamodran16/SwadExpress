@@ -44,6 +44,8 @@ const ViewMenuItem: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -51,13 +53,13 @@ const ViewMenuItem: React.FC = () => {
         setError(null);
 
         // Fetch menu item details
-        const menuItemResponse = await fetch(`http://localhost:5001/api/menu/${itemId}`);
+        const menuItemResponse = await fetch(`${API_URL}/api/menu/${itemId}`);
         if (!menuItemResponse.ok) throw new Error('Failed to fetch menu item details');
         const menuItemData = await menuItemResponse.json();
         setMenuItem(menuItemData);
 
         // Fetch restaurant details
-        const restaurantResponse = await fetch(`http://localhost:5001/api/restaurants/${menuItemData.restaurantId._id}`);
+        const restaurantResponse = await fetch(`${API_URL}/api/restaurants/${menuItemData.restaurantId._id}`);
         if (!restaurantResponse.ok) throw new Error('Failed to fetch restaurant details');
         const restaurantData = await restaurantResponse.json();
         setRestaurant(restaurantData);

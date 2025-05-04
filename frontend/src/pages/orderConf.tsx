@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { getAuth } from 'firebase/auth';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const OrderConf: React.FC = () => {
   const { items, getTotalPrice, clearCart } = useCart();
   const [selectedAddress, setSelectedAddress] = useState(0);
@@ -160,7 +162,7 @@ const OrderConf: React.FC = () => {
 
     // Send order to backend
     try {
-      const res = await fetch('http://localhost:5001/api/orders', {
+      const res = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -194,7 +196,7 @@ const OrderConf: React.FC = () => {
       const user = auth.currentUser;
       if (!user) return;
       try {
-        const res = await fetch(`http://localhost:5001/api/users/${user.uid}`);
+        const res = await fetch(`${API_URL}/api/users/${user.uid}`);
         if (!res.ok) throw new Error('Failed to fetch profile');
         const profile = await res.json();
         const VALID_PAYMENT_METHODS = ['Google Pay', 'Apple Pay', 'Cash on Delivery', 'Credit/Debit Card'];

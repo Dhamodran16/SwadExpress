@@ -21,11 +21,13 @@ const Restaurants: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5001/api/restaurants');
+        const response = await fetch(`${API_URL}/api/restaurants`);
         if (!response.ok) {
           throw new Error('Failed to fetch restaurants');
         }

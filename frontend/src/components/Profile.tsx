@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 const VALID_PAYMENT_METHODS = ['Google Pay', 'Apple Pay', 'Cash on Delivery', 'Credit/Debit Card'];
 const REQUIRED_FIELDS = ['displayName', 'phone', 'address', 'deliveryAddress', 'preferredPaymentMethod'];
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 const Profile: React.FC = () => {
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -29,13 +31,13 @@ const Profile: React.FC = () => {
       if (user) {
         let profile;
         // Try to fetch user from MongoDB
-        const res = await fetch(`http://localhost:5001/api/users/${user.uid}`);
+        const res = await fetch(`${API_URL}/api/users/${user.uid}`);
         if (res.ok) {
           profile = await res.json();
           setUserExists(true);
         } else {
           // If not found, create user in MongoDB
-          const createRes = await fetch('http://localhost:5001/api/users', {
+          const createRes = await fetch(`${API_URL}/api/users`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -137,7 +139,7 @@ const Profile: React.FC = () => {
     if (!VALID_PAYMENT_METHODS.includes(updateData.preferredPaymentMethod)) {
       updateData.preferredPaymentMethod = 'Cash on Delivery';
     }
-    const res = await fetch(`http://localhost:5001/api/users/${user.uid}`, {
+    const res = await fetch(`${API_URL}/api/users/${user.uid}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData),
@@ -165,7 +167,7 @@ const Profile: React.FC = () => {
     try {
       // Delete from MongoDB
     if (user) {
-        await fetch(`http://localhost:5001/api/users/${user.uid}`, { method: 'DELETE' });
+        await fetch(`${API_URL}/api/users/${user.uid}`, { method: 'DELETE' });
         // Delete from Firebase
         await user.delete();
         alert('Account deleted successfully.');
@@ -241,7 +243,7 @@ const Profile: React.FC = () => {
     if (address !== undefined) updateData.address = address;
     if (deliveryAddress !== undefined) updateData.deliveryAddress = deliveryAddress;
     if (addressesArr !== undefined) updateData.addresses = addressesArr;
-    await fetch(`http://localhost:5001/api/users/${user.uid}`, {
+    await fetch(`${API_URL}/api/users/${user.uid}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData),
@@ -278,7 +280,7 @@ const Profile: React.FC = () => {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
-      const res = await fetch(`http://localhost:5001/api/users/${user.uid}/password`, {
+      const res = await fetch(`${API_URL}/api/users/${user.uid}/password`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -372,7 +374,7 @@ const Profile: React.FC = () => {
 
   // Helper to re-fetch profile from backend
   const fetchProfileFromBackend = async (uid: string) => {
-    const res = await fetch(`http://localhost:5001/api/users/${uid}`);
+    const res = await fetch(`${API_URL}/api/users/${uid}`);
     if (res.ok) {
       const profile = await res.json();
       setProfileData((prev: any) => ({ ...profile, email: prev?.email || profile.email, photoURL: prev?.photoURL || profile.photoURL }));

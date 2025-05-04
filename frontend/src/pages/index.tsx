@@ -7,6 +7,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import CartIcon from '../components/CartIcon';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 interface Restaurant {
   _id: string;
   name: string;
@@ -92,7 +94,7 @@ const Index: React.FC = () => {
         setError(null);
 
         // Fetch restaurants
-        const restaurantsResponse = await fetch('http://localhost:5001/api/restaurants');
+        const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
         if (!restaurantsResponse.ok) {
           throw new Error('Failed to fetch restaurants');
         }
@@ -100,7 +102,7 @@ const Index: React.FC = () => {
         setRestaurants(restaurantsData);
 
         // Fetch menu items
-        const menuItemsResponse = await fetch('http://localhost:5001/api/menu');
+        const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
         if (!menuItemsResponse.ok) {
           throw new Error('Failed to fetch menu items');
         }

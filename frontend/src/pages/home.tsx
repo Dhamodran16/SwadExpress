@@ -56,6 +56,8 @@ const RestaurantMenu: React.FC = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [userInitial, setUserInitial] = useState('U');
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
   // Cuisine types for filter
   const cuisineTypes = ['All', 'Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Japanese'];
   
@@ -70,7 +72,7 @@ const RestaurantMenu: React.FC = () => {
         setError(null);
 
         // Fetch restaurants
-        const restaurantsResponse = await fetch('http://localhost:5001/api/restaurants');
+        const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
         if (!restaurantsResponse.ok) {
           throw new Error('Failed to fetch restaurants');
         }
@@ -78,7 +80,7 @@ const RestaurantMenu: React.FC = () => {
         setRestaurants(restaurantsData);
 
         // Fetch menu items
-        const menuItemsResponse = await fetch('http://localhost:5001/api/menu');
+        const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
         if (!menuItemsResponse.ok) {
           throw new Error('Failed to fetch menu items');
         }
