@@ -1,17 +1,21 @@
 {
   "name": "food-delivery-app",
   "version": "1.0.0",
-  "description": "Food Delivery Application with React Frontend and Node.js Backend",
+  "description": "Food Delivery Application",
+  "main": "index.js",
   "scripts": {
-    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
-    "start:frontend": "cd frontend && npm run dev",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run dev",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+    "start:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "clean": "rimraf node_modules && cd frontend && rimraf node_modules && cd ../backend && rimraf node_modules",
+    "reset": "npm run clean && npm run install:all"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "dependencies": {
-    "mongodb": "^6.16.0"
+    "concurrently": "^9.1.2",
+    "rimraf": "^5.0.5"
   }
 }

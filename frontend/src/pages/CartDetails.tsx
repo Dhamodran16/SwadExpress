@@ -1,128 +1,55 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React from 'react';
 
-const DELIVERY_STEPS = [
-  { label: 'Order Confirmed', icon: 'fa-check', color: 'bg-green-500', duration: 0 },
-  { label: 'Preparing Your Order', icon: 'fa-utensils', color: 'bg-indigo-100', duration: 10 * 60 * 1000 }, // 10 min
-  { label: 'Out for Delivery', icon: 'fa-motorcycle', color: 'bg-gray-200', duration: 10 * 60 * 1000 }, // 10 min
-  { label: 'Delivered', icon: 'fa-home', color: 'bg-gray-200', duration: 10 * 60 * 1000 }, // 10 min
-];
-
-function generateOrderNumber() {
-  return 'ORD-' + Math.floor(10000 + Math.random() * 90000);
-}
-
-function parseDeliveryTime(item: any) {
-  // Try to parse deliveryTime as minutes from item.deliveryTime (e.g., '30-45 minutes')
-  if (!item.deliveryTime) return 30;
-  const match = item.deliveryTime.match(/(\d+)-(\d+)/);
-  if (match) {
-    return (parseInt(match[1]) + parseInt(match[2])) / 2;
-  }
-  const single = item.deliveryTime.match(/(\d+)/);
-  return single ? parseInt(single[1]) : 30;
-}
-
-const CartDetails: React.FC = () => {
-  const navigate = useNavigate();
-  const { orderId } = useParams();
-  const [order, setOrder] = useState<any>(null);
-  const [orderNumber, setOrderNumber] = useState<string>('');
-  const [statusStep, setStatusStep] = useState<number>(0);
-  const [estimatedDelivery, setEstimatedDelivery] = useState<string>('30-45 minutes');
-
-  // Fetch order by ID if orderId param is present
-  useEffect(() => {
-    if (orderId) {
-      fetch(`http://localhost:5001/api/orders/${orderId}`)
-        .then(res => res.json())
-        .then(data => {
-          setOrder(data);
-          setOrderNumber(data.orderNumber || generateOrderNumber());
-          if (data.items && data.items.length > 0) {
-            const avg = Math.round(
-              data.items.map(parseDeliveryTime).reduce((a: number, b: number) => a + b, 0) / data.items.length
-            );
-            setEstimatedDelivery(`${avg - 5}-${avg + 5} minutes`);
-          }
-        });
-    } else {
-      const savedOrder = localStorage.getItem('latestOrder');
-      if (savedOrder) {
-        const parsed = JSON.parse(savedOrder);
-        setOrder(parsed);
-        setOrderNumber(parsed.orderNumber || generateOrderNumber());
-        if (parsed.items && parsed.items.length > 0) {
-          const avg = Math.round(
-            parsed.items.map(parseDeliveryTime).reduce((a: number, b: number) => a + b, 0) / parsed.items.length
-          );
-          setEstimatedDelivery(`${avg - 5}-${avg + 5} minutes`);
-        }
-      }
-    }
-  }, [orderId]);
-
-  // Delivery status stepper and backend sync
-  useEffect(() => {
-    if (!order) return;
-    const createdAt = new Date(order.createdAt).getTime();
-    const now = Date.now();
-    let elapsed = now - createdAt;
-    let step = 0;
-    let acc = 0;
-    for (let i = 0; i < DELIVERY_STEPS.length; i++) {
-      acc += DELIVERY_STEPS[i].duration;
-      if (elapsed >= acc) step = i;
-    }
-    setStatusStep(step);
-    // PATCH backend with new status if changed
-    if (order._id && order.status !== DELIVERY_STEPS[step].label) {
-      fetch(`http://localhost:5001/api/orders/${order._id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: DELIVERY_STEPS[step].label })
-      })
-        .then(res => res.json())
-        .then(updated => setOrder((prev: any) => ({ ...prev, status: updated.status })));
-    }
-    // Timer to update status
-    if (step < DELIVERY_STEPS.length - 1) {
-      const nextStepIn = DELIVERY_STEPS[step + 1].duration - (elapsed - (acc - DELIVERY_STEPS[step].duration));
-      const timer = setTimeout(() => setStatusStep(step + 1), nextStepIn);
-      return () => clearTimeout(timer);
-    }
-  }, [order, statusStep]);
-
-  const deliveryAddress = order?.address || {
+const App: React.FC = () => {
+  // Order details
+  const orderNumber = "ORD-38291";
+  const estimatedDelivery = "30-45 minutes";
+  const deliveryAddress = {
     street: '123 Main Street',
     apt: 'Apt 4B',
-    city: 'Erode',
-    state: 'Tamil Nadu',
-    zip: '638052',
+    city: 'San Francisco',
+    state: 'CA',
+    zip: '94105'
   };
-  
-  const getPaymentMethodDisplay = () => {
-    if (!order?.paymentMethod) return 'Cash on Delivery';
-    const { type, details } = order.paymentMethod;
-    switch (type) {
-      case 'credit':
-        return `Credit Card •••• ${details.cardNumber.slice(-4)}`;
-      case 'digital':
-        return `Digital Payment (Code: ${details.digitalPaymentCode})`;
-      case 'cash':
-        return 'Cash on Delivery';
-      default:
-        return 'Cash on Delivery';
+  const paymentMethod = "Visa •••• 4582";
+ 
+  // Cart items
+  const cartItems = [
+    {
+      id: 'item1',
+      name: 'Double Cheese Burger',
+      restaurantName: 'Burger Palace',
+      price: 12.99,
+      quantity: 2,
+      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20juicy%20double%20cheeseburger%20with%20melted%20cheese%2C%20fresh%20lettuce%2C%20tomato%2C%20and%20sauce%20on%20a%20sesame%20seed%20bun%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=1&orientation=squarish',
+      customization: 'Extra cheese, No onions',
+      specialInstructions: 'Cook well done please'
+    },
+    {
+      id: 'item2',
+      name: 'Margherita Pizza',
+      restaurantName: 'Pizza Heaven',
+      price: 18.50,
+      quantity: 1,
+      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20margherita%20pizza%20with%20melted%20mozzarella%20cheese%20and%20fresh%20basil%20leaves%20on%20a%20thin%20crust%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=2&orientation=squarish',
+      customization: 'Thin crust'
+    },
+    {
+      id: 'item3',
+      name: 'Chicken Caesar Salad',
+      restaurantName: 'Fresh Greens',
+      price: 9.99,
+      quantity: 1,
+      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20fresh%20chicken%20caesar%20salad%20with%20grilled%20chicken%20strips%2C%20crisp%20romaine%20lettuce%2C%20parmesan%20cheese%2C%20and%20croutons%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=3&orientation=squarish',
     }
-  };
-
-  const paymentMethod = getPaymentMethodDisplay();
-  const cartItems = order?.items || [];
-  const subtotal = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+  ];
+ 
+  // Calculate cart totals
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = 3.99;
-  const tax = subtotal * 0.08;
+  const tax = subtotal * 0.08; // 8% tax
   const total = subtotal + deliveryFee + tax;
 
   return (
@@ -130,13 +57,13 @@ const CartDetails: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer bg-transparent border-none"
-            style={{ background: 'none', border: 'none' }}
+          <a
+            href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/d61aa1b8-f767-47ff-989a-c418a873ce2b"
+            data-readdy="true"
+            className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer"
           >
             <i className="fas fa-arrow-left text-lg"></i>
-          </button>
+          </a>
           <h1 className="text-3xl font-semibold text-gray-800">Order Confirmed</h1>
         </div>
        
@@ -234,7 +161,7 @@ const CartDetails: React.FC = () => {
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">Order Items</h2>
                
                 <div className="space-y-6">
-                  {cartItems.map((item: any) => (
+                  {cartItems.map((item) => (
                     <div key={item.id} className="flex items-start">
                       <div className="w-16 h-16 rounded-lg overflow-hidden mr-4">
                         <img
@@ -277,31 +204,53 @@ const CartDetails: React.FC = () => {
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
                  
-                  {DELIVERY_STEPS.map((step, idx) => {
-                    // If delivered, all steps are green
-                    const isDelivered = order?.status === 'Delivered' || statusStep === DELIVERY_STEPS.length - 1;
-                    const isActive = idx <= statusStep;
-                    const iconBg = isDelivered ? 'bg-green-500' : isActive ? step.color : 'bg-gray-200';
-                    const iconText = isDelivered ? 'text-white' : isActive ? 'text-white' : 'text-gray-500';
-                    return (
-                      <div className={`relative flex items-start mb-6`} key={step.label}>
+                  <div className="relative flex items-start mb-6">
                         <div className="flex-shrink-0 mr-4">
-                          <div className={`w-8 h-8 ${iconBg} rounded-full flex items-center justify-center z-10 relative`}>
-                            <i className={`fas ${step.icon} ${iconText} text-sm`}></i>
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center z-10 relative">
+                        <i className="fas fa-check text-white text-sm"></i>
                           </div>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-800">{step.label}</p>
-                          <p className="text-sm text-gray-600">
-                            {step.label === 'Order Confirmed' && order?.createdAt ? new Date(order.createdAt).toLocaleString() :
-                              step.label === 'Preparing Your Order' ? 'Estimated: 10-15 minutes' :
-                              step.label === 'Out for Delivery' ? 'Estimated: 20-30 minutes' :
-                              step.label === 'Delivered' ? `Estimated: ${estimatedDelivery}` : ''}
-                          </p>
+                      <p className="font-medium text-gray-800">Order Confirmed</p>
+                      <p className="text-sm text-gray-600">May 4, 2025 • 12:30 PM</p>
+                    </div>
                         </div>
+                 
+                  <div className="relative flex items-start mb-6">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center z-10 relative">
+                        <i className="fas fa-utensils text-indigo-600 text-sm"></i>
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Preparing Your Order</p>
+                      <p className="text-sm text-gray-600">Estimated: 10-15 minutes</p>
+                    </div>
+                  </div>
+                 
+                  <div className="relative flex items-start mb-6">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center z-10 relative">
+                        <i className="fas fa-motorcycle text-gray-500 text-sm"></i>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Out for Delivery</p>
+                      <p className="text-sm text-gray-600">Estimated: 20-30 minutes</p>
+                    </div>
+                  </div>
+                 
+                  <div className="relative flex items-start">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center z-10 relative">
+                        <i className="fas fa-home text-gray-500 text-sm"></i>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Delivered</p>
+                      <p className="text-sm text-gray-600">Estimated: 30-45 minutes</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -358,19 +307,18 @@ const CartDetails: React.FC = () => {
              
               {/* Action Buttons */}
               <div className="space-y-4">
-                <button
-                  className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 !rounded-button cursor-pointer whitespace-nowrap"
-                  onClick={() => navigate('/')}
-                >
+                <button className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 !rounded-button cursor-pointer whitespace-nowrap">
                   <i className="fas fa-map-marker-alt mr-2"></i> Track Order
                 </button>
                
-                <button
+                <a
+                  href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/d61aa1b8-f767-47ff-989a-c418a873ce2b"
+                  data-readdy="true"
                   className="block w-full py-3 px-4 bg-white border border-gray-300 text-indigo-600 font-medium rounded-lg hover:bg-gray-50 text-center !rounded-button cursor-pointer whitespace-nowrap"
                   onClick={() => navigate('/')}
                 >
                   <i className="fas fa-home mr-2"></i> Return to Home
-                </button>
+                </a>
               </div>
             </div>
           </div>
@@ -429,4 +377,4 @@ const CartDetails: React.FC = () => {
   );
 };
 
-export default CartDetails;
+export default App;

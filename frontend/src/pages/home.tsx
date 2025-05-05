@@ -56,7 +56,7 @@ const RestaurantMenu: React.FC = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [userInitial, setUserInitial] = useState('U');
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
 
   // Cuisine types for filter
   const cuisineTypes = ['All', 'Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Japanese'];
@@ -70,7 +70,6 @@ const RestaurantMenu: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-
         // Fetch restaurants
         const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
         if (!restaurantsResponse.ok) {
@@ -78,7 +77,6 @@ const RestaurantMenu: React.FC = () => {
         }
         const restaurantsData = await restaurantsResponse.json();
         setRestaurants(restaurantsData);
-
         // Fetch menu items
         const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
         if (!menuItemsResponse.ok) {
@@ -93,12 +91,9 @@ const RestaurantMenu: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchData();
-
     // Set up polling for real-time updates (every 30 seconds)
     const intervalId = setInterval(fetchData, 30000);
-
     return () => clearInterval(intervalId);
   }, []);
 

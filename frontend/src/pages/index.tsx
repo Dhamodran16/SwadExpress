@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import CartIcon from '../components/CartIcon';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const API_URL = process.env.VITE_API_URL || 'http://localhost:5003';
 
 interface Restaurant {
   _id: string;
@@ -92,7 +92,6 @@ const Index: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-
         // Fetch restaurants
         const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
         if (!restaurantsResponse.ok) {
@@ -100,7 +99,6 @@ const Index: React.FC = () => {
         }
         const restaurantsData = await restaurantsResponse.json();
         setRestaurants(restaurantsData);
-
         // Fetch menu items
         const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
         if (!menuItemsResponse.ok) {
@@ -115,12 +113,9 @@ const Index: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchData();
-
     // Set up polling for real-time updates (every 30 seconds)
     const intervalId = setInterval(fetchData, 30000);
-
     return () => clearInterval(intervalId);
   }, []);
 

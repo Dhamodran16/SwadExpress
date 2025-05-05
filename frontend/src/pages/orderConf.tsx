@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { getAuth } from 'firebase/auth';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
 
 const OrderConf: React.FC = () => {
   const { items, getTotalPrice, clearCart } = useCart();
@@ -14,9 +14,9 @@ const OrderConf: React.FC = () => {
     {
       street: '123 Main Street',
       apt: 'Apt 4B',
-      city: 'Erode',
-      state: 'Tamil Nadu',
-      zip: '638052'
+      city: 'San Francisco',
+      state: 'CA',
+      zip: '94105'
     }
   ];
   const [deliveryType, setDeliveryType] = useState('asap');
@@ -171,14 +171,13 @@ const OrderConf: React.FC = () => {
         const order = await res.json();
         setOrderNumber(order.orderNumber);
         clearCart();
-        localStorage.setItem('latestOrder', JSON.stringify(order));
-        navigate(`/order/${order._id}`);
+        setShowOrderPlaced(true);
       } else {
-        const err = await res.json();
-        toast.error('Order failed: ' + (err.error || 'Unknown error'));
+        const error = await res.json();
+        toast.error(error.message || 'Failed to place order');
       }
-    } catch (err) {
-      toast.error('Order failed: ' + err);
+    } catch (error) {
+      toast.error('An error occurred while placing the order');
     }
   };
 
@@ -279,14 +278,13 @@ const OrderConf: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer bg-transparent border-none"
-            style={{ background: 'none', border: 'none' }}
-            aria-label="Back"
+          <a
+            href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/8d60ad80-4dbb-4c2e-899a-03a0a5df1f9c"
+            data-readdy="true"
+            className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer"
           >
             <i className="fas fa-arrow-left text-lg"></i>
-          </button>
+          </a>
           <h1 className="text-3xl font-semibold text-gray-800">Checkout</h1>
         </div>
         {/* Progress Indicator */}
@@ -626,10 +624,7 @@ const OrderConf: React.FC = () => {
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-medium text-gray-700">Items ({items.length})</h3>
-                  <button
-                    className="text-indigo-600 text-sm font-medium cursor-pointer whitespace-nowrap"
-                    onClick={() => setShowOrderDetails(true)}
-                  >
+                  <button className="text-indigo-600 text-sm font-medium cursor-pointer whitespace-nowrap">
                     View Details
                   </button>
                 </div>

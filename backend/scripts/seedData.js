@@ -3,7 +3,7 @@ import Restaurant from '../models/Restaurant.js';
 import MenuItem from '../models/MenuItem.js';
 
 // MongoDB connection string
-const MONGODB_URI = 'mongodb+srv://dhamodran17:WT_PROJECT@wt-project.zr3ux3r.mongodb.net/?retryWrites=true&w=majority&appName=WT-PROJECT';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://dhamodran17:WT_PROJECT@wt-project.zr3ux3r.mongodb.net/?retryWrites=true&w=majority&appName=WT-PROJECT';
 
 const restaurants = [
   {
@@ -59,4 +59,4 @@ async function seedData() {
 }
 
 // Run the seeding function
-seedData(); 
+seedData();

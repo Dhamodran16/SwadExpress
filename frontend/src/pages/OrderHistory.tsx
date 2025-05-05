@@ -2,6 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth } from 'firebase/auth';
 
+// Added a placeholder for useAuthGuard
+const useAuthGuard = () => {
+  // Placeholder logic for authentication guard
+};
+
+// Defined missing variables
+const items = []; // Example cart items array
+const subtotal = 0; // Example subtotal
+const deliveryFee = 0; // Example delivery fee
+const tax = 0; // Example tax
+const paymentMethod = 'credit'; // Example payment method
+const clearCart = () => {
+  console.log('Cart cleared');
+};
+
 interface OrderItem {
   name: string;
   price: number;
@@ -25,7 +40,7 @@ const OrderHistory: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  useAuthGuard();
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -40,7 +55,7 @@ const OrderHistory: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`${API_URL}/api/orders/user/${userId}`);
+        const res = await fetch(`http://localhost:5001/api/orders/user/${userId}`);
         if (!res.ok) throw new Error('Failed to fetch orders');
         const data = await res.json();
         setOrders(data);
@@ -52,6 +67,47 @@ const OrderHistory: React.FC = () => {
     };
     fetchOrders();
   }, []);
+
+  const handlePlaceOrder = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      // Redirect to login or show error
+      // navigate('/signin');
+      return;
+    }
+
+    // Gather order data
+    const orderData = {
+      userId: user.uid,
+      items: items, // your cart items array from context or state
+      total: subtotal + deliveryFee + tax, // or your total calculation
+      status: 'delivered', // or 'processing', etc.
+      deliveryAddress: "123 Main Street, Erode, 638052",
+      paymentMethod: paymentMethod, // e.g., 'credit', 'cash', etc.
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch('http://localhost:5001/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      if (res.ok) {
+        // Success: clear cart, show confirmation, navigate, etc.
+        clearCart();
+        navigate('/order-placed');
+      } else {
+        // Handle error
+        const err = await res.json();
+        alert('Order failed: ' + (err.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Order failed: ' + err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -66,11 +122,11 @@ const OrderHistory: React.FC = () => {
         ) : (
           <div className="space-y-6">
             {orders.map(order => (
-              <div key={order._id} className="bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-indigo-50" onClick={() => navigate(`/order/${order._id}`)}>
+              <div key={order._id} className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-2">
                   <div>
                     <div className="text-lg font-semibold">{order.items[0]?.restaurantName || 'Restaurant'}</div>
-                    <div className="text-xs text-gray-500">Order #: {order.orderNumber}</div>
+                    <div className="text-xs text-gray-500">Order ID: {order._id}</div>
                   </div>
                   <div className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleString()}</div>
                 </div>
@@ -84,7 +140,7 @@ const OrderHistory: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <div>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${order.status.toLowerCase() === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>{order.status.toLowerCase() === 'delivered' ? 'DELIVERED' : order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${order.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>{order.status}</span>
                   </div>
                   <div className="text-lg font-bold text-gray-800">${order.total.toFixed(2)}</div>
                 </div>
@@ -92,10 +148,10 @@ const OrderHistory: React.FC = () => {
             ))}
           </div>
         )}
-        <button onClick={() => navigate(-1)} className="mt-8 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Back</button>
+        <button onClick={() => navigate('/profile')} className="mt-8 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Back to Profile</button>
       </div>
     </div>
   );
 };
 
-export default OrderHistory; 
+export default OrderHistory;

@@ -1,215 +1,98 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
-import React, { useState, useEffect } from 'react';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
+import React, { useState } from 'react';
+import { getAuth, updateProfile, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 
 const VALID_PAYMENT_METHODS = ['Google Pay', 'Apple Pay', 'Cash on Delivery', 'Credit/Debit Card'];
-const REQUIRED_FIELDS = ['displayName', 'phone', 'address', 'deliveryAddress', 'preferredPaymentMethod'];
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 const Profile: React.FC = () => {
-  const [profileData, setProfileData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showSuccessMessage, setShowSuccessMessage] = useState<string | false>(false);
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [newAddress, setNewAddress] = useState('');
-  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [isEditing, setIsEditing] = useState(false);
-  const [userExists, setUserExists] = useState(false);
+  const auth = getAuth();
+  const user = auth.currentUser;
   const navigate = useNavigate();
 
-  // Fetch or create user on mount
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        let profile;
-        // Try to fetch user from MongoDB
-        const res = await fetch(`${API_URL}/api/users/${user.uid}`);
-        if (res.ok) {
-          profile = await res.json();
-          setUserExists(true);
-        } else {
-          // If not found, create user in MongoDB
-          const createRes = await fetch(`${API_URL}/api/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              firebaseUid: user.uid,
-              email: user.email,
-              displayName: user.displayName || '',
-              photoURL: user.photoURL || '',
-              phone: user.phoneNumber || '',
-              addresses: [],
-              preferredPaymentMethod: 'Cash on Delivery',
-              password: null,
-              address: '',
-              deliveryAddress: '',
-              specialInstructions: '',
-              orderNumber: { type: String, required: true, unique: true },
-            }),
-          });
-          if (createRes.ok) {
-            profile = await createRes.json();
-            setUserExists(true);
-          } else {
-            setShowSuccessMessage('User creation failed. Please contact support.');
-            setUserExists(false);
-            setLoading(false);
-            console.error('User creation failed:', await createRes.text());
-            return;
-          }
-        }
-        setProfileData({
-          ...profile,
-          email: user.email || '',
-          photoURL: user.photoURL || '',
-        });
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Editable profile fields
+  const [profileData, setProfileData] = useState<any>({});
+  const [loading, setLoading] = useState(true);
+  const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [newAddress, setNewAddress] = useState('');
+  const [addresses, setAddresses] = useState<any[]>([]);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  // Add missing handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setProfileData((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await updateProfile(user, {
+        displayName: profileData.displayName,
+        photoURL: profileData.photoURL,
+      });
+      // Update backend
+      await fetch(`${API_URL}/api/users/${user.uid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData),
+      });
+      setShowSuccessMessage('Updated');
+      setIsEditing(false);
+      await fetchProfileFromBackend(user.uid);
+    } catch (err) {
+      setShowSuccessMessage('Failed to update profile.');
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
+    setLoading(true);
+    try {
+      await fetch(`${API_URL}/api/users/${user.uid}`, { method: 'DELETE' });
+      await signOut(auth);
+      window.location.replace('/');
+    } catch (err) {
+      setShowSuccessMessage('Failed to delete account.');
+    }
+    setLoading(false);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
-        setProfileData((prev: any) => ({ ...prev, photoURL: reader.result as string }));
+      reader.onload = (ev) => {
+        setSelectedImage(ev.target?.result as string);
+        setProfileData((prev: any) => ({ ...prev, photoURL: ev.target?.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleCameraCapture = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
-
-      setTimeout(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0);
-        
-        const imageDataUrl = canvas.toDataURL('image/jpeg');
-        setSelectedImage(imageDataUrl);
-        
-        stream.getTracks().forEach(track => track.stop());
-        setShowImageUploadModal(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setProfileData({
-      ...profileData,
-      [name]: value || ''
-    });
-  };
-
-  const handleSaveChanges = async () => {
-    setShowSuccessMessage(false);
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user || !userExists) {
-      setShowSuccessMessage('Not updated');
-      return;
-    }
-    // Find the default address
-    const defaultAddr = addresses.find(addr => addr.isDefault);
-    let updateData = { ...profileData, addresses };
-    if (defaultAddr) {
-      updateData.deliveryAddress = defaultAddr.address;
-    }
-    if (!VALID_PAYMENT_METHODS.includes(updateData.preferredPaymentMethod)) {
-      updateData.preferredPaymentMethod = 'Cash on Delivery';
-    }
-    const res = await fetch(`${API_URL}/api/users/${user.uid}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData),
-  });
-    if (res.ok) {
-      setShowSuccessMessage('Updated');
-      setTimeout(() => setShowSuccessMessage(false), 3000);
-    } else {
-      setShowSuccessMessage('Not updated');
-      setTimeout(() => setShowSuccessMessage(false), 3000);
-      console.error('Profile update failed:', await res.text());
-    }
-    setIsEditing(false);
-  };
-
-  const handleUpdateProfile = () => {
-    handleSaveChanges();
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmDelete = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
-    if (!confirmDelete) return;
-    const auth = getAuth();
-    const user = auth.currentUser;
-    try {
-      // Delete from MongoDB
-    if (user) {
-        await fetch(`${API_URL}/api/users/${user.uid}`, { method: 'DELETE' });
-        // Delete from Firebase
-        await user.delete();
-        alert('Account deleted successfully.');
-        window.location.replace('/signin');
-      }
-    } catch (err: any) {
-      if (err.code === 'auth/requires-recent-login') {
-        alert('Please re-login to delete your account for security reasons.');
-        await signOut(auth);
-        window.location.replace('/signin');
-      } else {
-        alert('Failed to delete account. Please try again.');
-        console.error('Delete account error:', err);
-      }
-    }
+  const handleCameraCapture = () => {
+    alert('Camera capture not implemented in this demo.');
   };
 
   const handleAddAddress = async () => {
-    if (newAddress.trim()) {
-      const newAddressObj = {
-        id: addresses.length + 1,
-        address: newAddress,
-        isDefault: addresses.length === 0 // first address is default
-      };
-      const updatedAddresses = [...addresses, newAddressObj];
-      setAddresses(updatedAddresses);
-      setNewAddress('');
-      setShowAddressModal(false);
-      // If this is the first address, set as main address and delivery address
-      if (updatedAddresses.length === 1) {
-        setProfileData((prev: any) => ({ ...prev, address: newAddressObj.address, deliveryAddress: newAddressObj.address }));
-        // Immediately update backend
-        await updateAddressOnBackend(newAddressObj.address, newAddressObj.address, updatedAddresses);
-      } else {
-        // Immediately update backend with new addresses array
-        await updateAddressOnBackend(undefined, undefined, updatedAddresses);
-      }
-      // Re-fetch profile
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) await fetchProfileFromBackend(user.uid);
-    }
+    if (!newAddress.trim()) return;
+    const newAddrObj = { id: Date.now(), address: newAddress, isDefault: addresses.length === 0 };
+    const updatedAddresses = [...addresses, newAddrObj];
+    setAddresses(updatedAddresses);
+    setShowAddressModal(false);
+    setNewAddress('');
+    setProfileData((prev: any) => ({ ...prev, address: newAddrObj.address, deliveryAddress: newAddrObj.address }));
+    await updateAddressOnBackend(newAddrObj.address, newAddrObj.address, updatedAddresses);
   };
 
   const handleSetDefaultAddress = async (id: number) => {
@@ -218,23 +101,18 @@ const Profile: React.FC = () => {
       isDefault: addr.id === id
     }));
     setAddresses(updatedAddresses);
-    // Set main address and delivery address to the default one
     const defaultAddr = updatedAddresses.find(addr => addr.id === id);
     if (defaultAddr) {
       setProfileData((prev: any) => ({ ...prev, address: defaultAddr.address, deliveryAddress: defaultAddr.address }));
-      // Immediately update backend
       await updateAddressOnBackend(defaultAddr.address, defaultAddr.address, updatedAddresses);
     } else {
-      // Update backend with new addresses array
       await updateAddressOnBackend(undefined, undefined, updatedAddresses);
     }
-    // Re-fetch profile
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) await fetchProfileFromBackend(user.uid);
   };
 
-  // Helper to update address/deliveryAddress/addresses in backend
   const updateAddressOnBackend = async (address?: string, deliveryAddress?: string, addressesArr?: any[]) => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -275,7 +153,6 @@ const Profile: React.FC = () => {
       closeButton?.addEventListener('click', () => errorModal.remove());
       return;
     }
-    // Call backend to change password
     try {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -288,7 +165,6 @@ const Profile: React.FC = () => {
           newPassword: passwordData.newPassword
         })
       });
-      const data = await res.json();
       if (!res.ok) {
         const errorModal = document.createElement('div');
         errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
@@ -346,7 +222,7 @@ const Profile: React.FC = () => {
       document.body.appendChild(errorModal);
       const closeButton = errorModal.querySelector('button');
       closeButton?.addEventListener('click', () => errorModal.remove());
-  }
+    }
   };
 
   const scrollToTop = () => {
@@ -359,7 +235,6 @@ const Profile: React.FC = () => {
     window.location.replace('/');
   };
 
-  // Profile completeness check
   const isProfileComplete = () => {
     if (!profileData) return false;
     return (
@@ -372,7 +247,6 @@ const Profile: React.FC = () => {
     );
   };
 
-  // Helper to re-fetch profile from backend
   const fetchProfileFromBackend = async (uid: string) => {
     const res = await fetch(`${API_URL}/api/users/${uid}`);
     if (res.ok) {
@@ -381,15 +255,30 @@ const Profile: React.FC = () => {
     }
   };
 
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      setLoading(true);
+      const res = await fetch(`${API_URL}/api/users/${user.uid}`);
+      if (res.ok) {
+        const profile = await res.json();
+        setProfileData(profile);
+        setAddresses(profile.addresses || []);
+      }
+      setLoading(false);
+    };
+    fetchProfile();
+  }, [user]);
+
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
-return (
-<div className="min-h-screen bg-gray-50">
+  return (
+    <div className="min-h-screen bg-gray-50">
       {/* Navigation Bar */}
       <nav className="fixed top-0 left-0 right-0 bg-white shadow-md z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-<div className="flex items-center">
+            <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
                 <i className="fas fa-utensils text-orange-500 text-2xl mr-2"></i>
                 <span className="font-bold text-xl text-gray-800">FoodDelivery</span>
@@ -430,8 +319,8 @@ return (
               </button>
             </div>
           </div>
-</div>
-</nav>
+        </div>
+      </nav>
       {/* Main Content */}
       <div className="pt-16 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -442,9 +331,9 @@ return (
                 {loading ? (
                   <div className="w-full h-full flex items-center justify-center">Loading...</div>
                 ) : (
-            <img
+                  <img
                     src={selectedImage ? selectedImage : (profileData.photoURL ? profileData.photoURL : "https://cdn-icons-png.flaticon.com/512/149/149071.png")}
-alt="Profile"
+                    alt="Profile"
                     className="w-full h-full object-cover object-top"
                   />
                 )}
@@ -538,8 +427,8 @@ alt="Profile"
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i className="fas fa-phone text-gray-400"></i>
                       </div>
-              <input
-                type="text"
+                      <input
+                        type="text"
                         name="phone"
                         id="phone"
                         className="focus:ring-orange-500 focus:border-orange-500 block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-md"
@@ -551,8 +440,8 @@ alt="Profile"
                         <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                           <i className="fas fa-pencil-alt text-gray-400"></i>
                         </div>
-            )}
-          </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label htmlFor="address" className="block text-sm font-medium text-gray-700">Home Address</label>
@@ -560,8 +449,8 @@ alt="Profile"
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i className="fas fa-home text-gray-400"></i>
                       </div>
-              <input
-                type="text"
+                      <input
+                        type="text"
                         name="address"
                         id="address"
                         className="focus:ring-orange-500 focus:border-orange-500 block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-md"
@@ -674,7 +563,7 @@ alt="Profile"
                   <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-lg font-medium text-gray-900">Upload Profile Picture</h3>
-                      <button onClick={() => setShowImageUploadModal(false)} className="text-gray-400 hover:text-gray-500">
+                      <button onClick={() => setShowImageUploadModal(false)} className="text-gray-400 hover:text-gray-500" title="Close image upload modal">
                         <i className="fas fa-times"></i>
                       </button>
                     </div>
@@ -696,6 +585,7 @@ alt="Profile"
                       <button
                         onClick={handleCameraCapture}
                         className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                        title="Take photo with camera"
                       >
                         <i className="fas fa-camera text-3xl text-orange-500 mb-2"></i>
                         <span className="text-sm font-medium text-gray-700">Take Photo</span>
@@ -739,9 +629,9 @@ alt="Profile"
                   <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
-                      <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-500">
+                      <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-500" title="Close password modal">
                         <i className="fas fa-times"></i>
-              </button>
+                      </button>
                     </div>
                     <div className="space-y-4">
                       <div>
@@ -780,8 +670,8 @@ alt="Profile"
                         onClick={() => setShowPasswordModal(false)}
                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
                       >
-                Cancel
-</button>
+                        Cancel
+                      </button>
                       <button
                         onClick={handleChangePassword}
                         className="px-4 py-2 bg-orange-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
@@ -798,7 +688,7 @@ alt="Profile"
                   <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-medium text-gray-900">Add New Address</h3>
-                      <button onClick={() => setShowAddressModal(false)} className="text-gray-400 hover:text-gray-500">
+                      <button onClick={() => setShowAddressModal(false)} className="text-gray-400 hover:text-gray-500" title="Close address modal">
                         <i className="fas fa-times"></i>
                       </button>
                     </div>
@@ -819,17 +709,17 @@ alt="Profile"
                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
                       >
                         Cancel
-</button>
+                      </button>
                       <button
                         onClick={handleAddAddress}
                         className="px-4 py-2 bg-orange-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
                       >
                         Add Address
-</button>
-</div>
+                      </button>
+                    </div>
                   </div>
                 </div>
-          )}
+              )}
               {/* Addresses Section */}
               <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
                 <div className="px-6 py-5 border-b border-gray-200">
@@ -837,15 +727,15 @@ alt="Profile"
                     <div>
                       <h3 className="text-lg font-medium leading-6 text-gray-900">My Addresses</h3>
                       <p className="mt-1 text-sm text-gray-500">Manage your delivery addresses.</p>
-</div>
+                    </div>
                     <button
                       onClick={() => setShowAddressModal(true)}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
                     >
                       <i className="fas fa-plus mr-2"></i>
                       Add Address
-</button>
-</div>
+                    </button>
+                  </div>
                 </div>
                 <div className="px-6 py-6 space-y-4">
                   {addresses.map((addr) => (
@@ -861,41 +751,44 @@ alt="Profile"
                               Default
                             </span>
                           )}
-</div>
-</div>
+                        </div>
+                      </div>
                       <div className="flex items-center space-x-2">
                         {!addr.isDefault && (
                           <button
                             onClick={() => handleSetDefaultAddress(addr.id)}
                             className="text-sm text-orange-600 hover:text-orange-700"
+                            title="Set as default address"
                           >
                             Set as Default
-</button>
+                          </button>
                         )}
                         <button
                           onClick={() => handleRemoveAddress(addr.id)}
                           className="text-sm text-red-600 hover:text-red-700"
+                          title="Remove address"
                         >
                           <i className="fas fa-trash-alt"></i>
-</button>
-</div>
-</div>
-))}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-</div>
-</div>
-</div>
+              </div>
+            </div>
+          </div>
         </div>
-</div>
+      </div>
       {/* Back to top button */}
       <button
         onClick={scrollToTop}
         className="fixed bottom-8 right-8 bg-orange-500 text-white p-3 rounded-full shadow-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button cursor-pointer whitespace-nowrap"
+        title="Back to top"
       >
         <i className="fas fa-arrow-up"></i>
       </button>
-</div>
-);
+    </div>
+  );
 };
 
 export default Profile;

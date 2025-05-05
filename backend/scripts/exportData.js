@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // MongoDB connection string
-const MONGODB_URI = 'mongodb://localhost:27017/foodexpress';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://dhamodran17:WT_PROJECT@wt-project.zr3ux3r.mongodb.net/?retryWrites=true&w=majority&appName=WT-PROJECT';
 
 async function exportData() {
   try {
@@ -67,4 +67,4 @@ async function exportData() {
 }
 
 // Run the export function
-exportData(); 
+exportData();

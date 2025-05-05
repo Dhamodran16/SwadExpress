@@ -4,60 +4,76 @@ import User from '../models/user.js';
 const router = express.Router();
 
 // Get user profile by firebaseUid
-router.get('/:firebaseUid', async (req, res) => {
+router.get('/:firebaseUid', async (req, res, next) => {
   try {
     const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Create user profile
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
     const user = new User(req.body);
     user.preferredPaymentMethod = 'Cash on Delivery'; // or another valid value
     await user.save();
     res.status(201).json(user);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 
 // Update user profile
-router.patch('/:firebaseUid', async (req, res) => {
+router.patch('/:firebaseUid', async (req, res, next) => {
   try {
     const user = await User.findOneAndUpdate(
       { firebaseUid: req.params.firebaseUid },
       { ...req.body, updatedAt: new Date() },
       { new: true }
     );
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     res.json(user);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete user profile
-router.delete('/:firebaseUid', async (req, res) => {
+router.delete('/:firebaseUid', async (req, res, next) => {
   try {
     const user = await User.findOneAndDelete({ firebaseUid: req.params.firebaseUid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     res.json({ message: 'User deleted' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Add or update address
-router.patch('/:firebaseUid/address', async (req, res) => {
+router.patch('/:firebaseUid/address', async (req, res, next) => {
   try {
     const { address, addressId } = req.body;
     const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     if (addressId) {
       // Edit existing address
       user.addresses = user.addresses.map(a => a._id.toString() === addressId ? { ...a.toObject(), ...address } : a);
@@ -69,39 +85,49 @@ router.patch('/:firebaseUid/address', async (req, res) => {
     await user.save();
     res.json(user);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete address
-router.delete('/:firebaseUid/address/:addressId', async (req, res) => {
+router.delete('/:firebaseUid/address/:addressId', async (req, res, next) => {
   try {
     const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     user.addresses = user.addresses.filter(a => a._id.toString() !== req.params.addressId);
     user.updatedAt = new Date();
     await user.save();
     res.json(user);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 
 // Change user password
-router.patch('/:firebaseUid/password', async (req, res) => {
+router.patch('/:firebaseUid/password', async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      throw error;
+    }
     if ((user.password || '') !== (currentPassword || '')) {
-      return res.status(400).json({ error: 'Current password does not match' });
+      const error = new Error('Current password does not match');
+      error.status = 400;
+      throw error;
     }
     user.password = newPassword;
     user.updatedAt = new Date();
     await user.save();
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 

@@ -21,7 +21,7 @@ const Restaurants: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
 
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -138,4 +138,4 @@ const Restaurants: React.FC = () => {
   );
 };
 
-export default Restaurants; 
+export default Restaurants;

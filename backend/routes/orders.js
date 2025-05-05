@@ -1,62 +1,94 @@
 import express from 'express';
+import { body, param } from 'express-validator';
+import { validateRequest } from '../middleware/validateRequest.js';
 import Order from '../models/order.js';
 
 const router = express.Router();
 
-// Helper to generate unique order number
-function generateOrderNumber() {
-  return 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-}
+// Validation middleware
+const validateOrder = [
+  body('userId').isMongoId().withMessage('Invalid user ID'),
+  body('items').isArray().withMessage('Items must be an array'),
+  body('items.*.menuItemId').isMongoId().withMessage('Invalid menu item ID'),
+  body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+  body('totalAmount').isFloat({ min: 0 }).withMessage('Total amount must be a positive number'),
+  validateRequest
+];
+
+// Get all orders
+router.get('/', async (req, res) => {
+  try {
+    const orders = await Order.find().populate('userId', 'name email');
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get orders by user ID
+router.get('/user/:userId', 
+  param('userId').isMongoId().withMessage('Invalid user ID'),
+  validateRequest,
+  async (req, res, next) => {
+    try {
+      const orders = await Order.find({ userId: req.params.userId })
+        .populate('userId', 'name email');
+      res.json(orders);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // Create a new order
-router.post('/', async (req, res) => {
-  console.log('POST /api/orders hit');
-  console.log('Received order:', req.body); // For debugging
+router.post('/', validateOrder, async (req, res, next) => {
   try {
-    const orderData = { ...req.body, orderNumber: generateOrderNumber() };
-    const order = new Order(orderData);
+    const order = new Order(req.body);
     await order.save();
     res.status(201).json(order);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 });
 
-// Get all orders for a user
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// Update order status
+router.patch('/:id',
+  param('id').isMongoId().withMessage('Invalid order ID'),
+  body('status').isIn(['pending', 'processing', 'completed', 'cancelled'])
+    .withMessage('Invalid status'),
+  validateRequest,
+  async (req, res, next) => {
+    try {
+      const order = await Order.findByIdAndUpdate(
+        req.params.id,
+        { status: req.body.status },
+        { new: true }
+      );
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      res.json(order);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-// PATCH: Update order status
-router.patch('/:orderId/status', async (req, res) => {
-  try {
-    const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.orderId,
-      { status },
-      { new: true }
-    );
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    res.json(order);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// Delete an order
+router.delete('/:id',
+  param('id').isMongoId().withMessage('Invalid order ID'),
+  validateRequest,
+  async (req, res, next) => {
+    try {
+      const order = await Order.findByIdAndDelete(req.params.id);
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      res.json({ message: 'Order deleted successfully' });
+    } catch (err) {
+      next(err);
+    }
   }
-});
-
-// GET: Fetch a single order by ID
-router.get('/:orderId', async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.orderId);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    res.json(order);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+);
 
 export default router;

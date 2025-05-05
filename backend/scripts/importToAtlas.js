@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // MongoDB Atlas connection string
-const MONGODB_URI = 'mongodb+srv://dhamodran17:WT_PROJECT@wt-project.zr3ux3r.mongodb.net/?retryWrites=true&w=majority&appName=WT-PROJECT';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://dhamodran17:WT_PROJECT@wt-project.zr3ux3r.mongodb.net/?retryWrites=true&w=majority&appName=WT-PROJECT';
 
 async function importToAtlas() {
   try {
@@ -55,4 +55,4 @@ async function importToAtlas() {
 }
 
 // Run the import function
-importToAtlas(); 
+importToAtlas();
