@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaStar, FaMotorcycle, FaMapMarkerAlt, FaUserCircle } from 'react-icons/fa';
+import { FaUserCircle } from 'react-icons/fa';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CartIcon from '../components/CartIcon';
@@ -42,19 +42,17 @@ interface MenuItem {
 
 const RestaurantMenu: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [location, setLocation] = useState('Erode, 638052');
+  const [location] = useState('Erode, 638052');
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortOption, setSortOption] = useState('Rating');
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('Guest');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [userInitial, setUserInitial] = useState('U');
+  const [userInitial, setUserInitial] = useState('C');
 
   const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
 

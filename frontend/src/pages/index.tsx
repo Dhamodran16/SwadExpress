@@ -6,6 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import CartIcon from '../components/CartIcon';
+import { restaurantAPI, menuAPI } from '../services/api';
 
 const API_URL = process.env.VITE_API_URL || 'http://localhost:5003';
 
@@ -92,31 +93,17 @@ const Index: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        // Fetch restaurants
-        const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
-        if (!restaurantsResponse.ok) {
-          throw new Error('Failed to fetch restaurants');
-        }
-        const restaurantsData = await restaurantsResponse.json();
-        setRestaurants(restaurantsData);
-        // Fetch menu items
-        const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
-        if (!menuItemsResponse.ok) {
-          throw new Error('Failed to fetch menu items');
-        }
-        const menuItemsData = await menuItemsResponse.json();
-        setMenuItems(menuItemsData);
+        const restaurantsData = await restaurantAPI.getAll();
+        setRestaurants(restaurantsData.data);
+        const menuItemsData = await menuAPI.getAll();
+        setMenuItems(menuItemsData.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-    // Set up polling for real-time updates (every 30 seconds)
-    const intervalId = setInterval(fetchData, 30000);
-    return () => clearInterval(intervalId);
   }, []);
 
   // Filter restaurants based on selected cuisine and search term

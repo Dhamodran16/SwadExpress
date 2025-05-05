@@ -1,8 +1,11 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const App: React.FC = () => {
+  const navigate = useNavigate();
+
   // Order details
   const orderNumber = "ORD-38291";
   const estimatedDelivery = "30-45 minutes";
