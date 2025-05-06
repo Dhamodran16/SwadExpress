@@ -5,10 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import CartIcon from '../components/CartIcon';
 import { restaurantAPI, menuAPI } from '../services/api';
 
-const API_URL = process.env.VITE_API_URL || 'http://localhost:5003';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
 interface Restaurant {
   _id: string;
@@ -158,26 +157,6 @@ const Index: React.FC = () => {
     navigate(`/restaurant/${id}`);
   };
 
-  const handleAddToCart = (item: MenuItem) => {
-    if (!isLoggedIn) {
-      toast.error('Please sign in to add items to cart');
-      navigate('/signin');
-      return;
-    }
-
-    try {
-      if (!item.isAvailable) {
-        toast.error('This item is currently unavailable');
-        return;
-      }
-
-      toast.success(`${item.name} added to cart!`);
-    } catch (error) {
-      console.error('Error adding item to cart:', error);
-      toast.error('Failed to add item to cart. Please try again.');
-    }
-  };
-
   const handleViewOrders = () => {
     if (!isLoggedIn) {
       toast.error('Please sign in to view your orders');
@@ -186,6 +165,12 @@ const Index: React.FC = () => {
     }
     navigate('/orders');
   };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigate('/home');
+    }
+  }, [isLoggedIn, navigate]);
 
   if (loading) {
     return (
@@ -289,9 +274,6 @@ const Index: React.FC = () => {
                 </button>
               </>
             )}
-            <div className="relative">
-              <CartIcon className="text-4xl" />
-            </div>
           </div>
         </div>
 
@@ -354,13 +336,27 @@ const Index: React.FC = () => {
             <p className="text-lg md:text-xl mb-6">Order from your favorite restaurants with just a few clicks</p>
             <div className="flex">
               <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-button whitespace-nowrap font-medium cursor-pointer"
-                onClick={() => navigate('/signup')}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    toast.error('Please sign in to order');
+                    navigate('/signin');
+                  } else {
+                    navigate('/signup');
+                  }
+                }}
               >
                 Order Now
               </button>
               <button 
                 className="ml-4 bg-white hover:bg-gray-100 text-orange-600 px-6 py-3 rounded-button whitespace-nowrap font-medium cursor-pointer"
-                onClick={() => navigate('/restaurants')}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    toast.error('Please sign in to view restaurants');
+                    navigate('/signin');
+                  } else {
+                    navigate('/restaurants');
+                  }
+                }}
               >
                 View Restaurants
               </button>
@@ -377,7 +373,14 @@ const Index: React.FC = () => {
               <div 
                 key={restaurant._id} 
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                onClick={() => navigate(`/restaurant/${restaurant._id}`)}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    toast.error('Please sign in to view this restaurant');
+                    navigate('/signin');
+                  } else {
+                    navigate(`/restaurant/${restaurant._id}`);
+                  }
+                }}
               >
                 <div className="h-48 overflow-hidden">
                   <img
@@ -411,7 +414,12 @@ const Index: React.FC = () => {
                       className="text-orange-600 hover:text-orange-700 text-sm font-medium cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/restaurant/${restaurant._id}`);
+                        if (!isLoggedIn) {
+                          toast.error('Please sign in to view this restaurant');
+                          navigate('/signin');
+                        } else {
+                          navigate(`/restaurant/${restaurant._id}`);
+                        }
                       }}
                     >
                       View Restaurant <i className="fas fa-chevron-right ml-1 text-xs"></i>

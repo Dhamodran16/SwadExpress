@@ -38,6 +38,7 @@ interface MenuItem {
   isVegetarian: boolean;
   isSpicy: boolean;
   isAvailable: boolean;
+  deliveryTime?: string;
 }
 
 const RestaurantMenu: React.FC = () => {
@@ -54,7 +55,7 @@ const RestaurantMenu: React.FC = () => {
   const { addItem } = useCart();
   const [userInitial, setUserInitial] = useState('C');
 
-  const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
   // Cuisine types for filter
   const cuisineTypes = ['All', 'Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Japanese'];
@@ -97,6 +98,8 @@ const RestaurantMenu: React.FC = () => {
 
   useEffect(() => {
     const auth = getAuth();
+    const user = auth.currentUser;
+    console.log(user.uid); // This is the firebaseUid
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsLoggedIn(!!user);
       if (user) {
@@ -174,13 +177,14 @@ const RestaurantMenu: React.FC = () => {
       }
 
       addItem({
-        id: item._id || item.id || '', // Handle both _id and id
+        id: item._id ?? item.id ?? '',
         name: item.name,
         price: item.price,
         quantity: 1,
         image: item.image,
         restaurantId: item.restaurantId._id,
-        restaurantName: item.restaurantId.name
+        restaurantName: item.restaurantId.name,
+        deliveryTime: item.deliveryTime || ''
       });
       
       toast.success(`${item.name} added to cart!`);
@@ -267,7 +271,7 @@ const RestaurantMenu: React.FC = () => {
             >
               {isLoggedIn ? (
                 <span className="inline-flex items-center justify-center w-12 h-12 rounded-full text-white text-3xl font-bold uppercase"
-                  style={{ background: '#0B5EA8' }}>
+                  style={{ background: 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' }}>
                   {userInitial}
                 </span>
               ) : (
@@ -336,7 +340,7 @@ const RestaurantMenu: React.FC = () => {
             <p className="text-lg md:text-xl mb-6">Order from your favorite restaurants with just a few clicks</p>
             <div className="flex">
               <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-button whitespace-nowrap font-medium cursor-pointer"
-                onClick={() => navigate('/orders')}
+                onClick={() => navigate('/cart')}
               >
                 Order Now
               </button>

@@ -10,6 +10,7 @@ export interface CartItem {
   restaurantName?: string;
   customization?: string;
   specialInstructions?: string;
+  deliveryTime?: string;
 }
 
 interface CartContextType {

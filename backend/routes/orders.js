@@ -11,7 +11,7 @@ const validateOrder = [
   body('items').isArray().withMessage('Items must be an array'),
   body('items.*.menuItemId').isMongoId().withMessage('Invalid menu item ID'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  body('totalAmount').isFloat({ min: 0 }).withMessage('Total amount must be a positive number'),
+  body('total').isFloat({ min: 0 }).withMessage('Total amount must be a positive number'),
   validateRequest
 ];
 
@@ -40,11 +40,43 @@ router.get('/user/:userId',
   }
 );
 
+// Get orders by Firebase UID
+router.get('/firebase/:firebaseUid', async (req, res, next) => {
+  try {
+    const orders = await Order.find({ userFirebaseUid: req.params.firebaseUid }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get all orders for a user (by firebaseUid)
+router.get('/user/:firebaseUid', async (req, res, next) => {
+  try {
+    const orders = await Order.find({ userId: req.params.firebaseUid }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get a single order by ID
+router.get('/:orderId', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Create a new order
 router.post('/', validateOrder, async (req, res, next) => {
   try {
     const order = new Order(req.body);
     await order.save();
+    console.log('Order saved:', order);
     res.status(201).json(order);
   } catch (err) {
     next(err);

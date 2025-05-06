@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { getAuth, updateProfile, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import { FaUserCircle } from 'react-icons/fa';
 
 const VALID_PAYMENT_METHODS = ['Google Pay', 'Apple Pay', 'Cash on Delivery', 'Credit/Debit Card'];
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
 const Profile: React.FC = () => {
   const auth = getAuth();
@@ -20,9 +21,22 @@ const Profile: React.FC = () => {
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [newAddress, setNewAddress] = useState('');
+  const [newAddress, setNewAddress] = useState<any>({
+    label: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    isDefault: false,
+  });
   const [addresses, setAddresses] = useState<any[]>([]);
 
   // Add missing handlers
@@ -85,14 +99,32 @@ const Profile: React.FC = () => {
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.trim()) return;
-    const newAddrObj = { id: Date.now(), address: newAddress, isDefault: addresses.length === 0 };
-    const updatedAddresses = [...addresses, newAddrObj];
-    setAddresses(updatedAddresses);
+    if (!newAddress.label || !newAddress.street || !newAddress.city || !newAddress.state || !newAddress.postalCode) return;
+    let updatedAddresses = addresses;
+    if (newAddress.isDefault) {
+      updatedAddresses = addresses.map(addr => ({ ...addr, isDefault: false }));
+    }
+    const addressToAdd = { ...newAddress, id: Date.now() };
+    const finalAddresses = [...updatedAddresses, addressToAdd];
+    setAddresses(finalAddresses);
     setShowAddressModal(false);
-    setNewAddress('');
-    setProfileData((prev: any) => ({ ...prev, address: newAddrObj.address, deliveryAddress: newAddrObj.address }));
-    await updateAddressOnBackend(newAddrObj.address, newAddrObj.address, updatedAddresses);
+    setNewAddress({
+      label: '',
+      street: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      isDefault: false,
+    });
+    if (!user) return;
+    await updateAddressOnBackend(finalAddresses);
+    // Refetch full profile after update
+    const res = await fetch(`${API_URL}/api/users/${user.uid}`);
+    if (res.ok) {
+      const profile = await res.json();
+      setProfileData(profile);
+      setAddresses(profile.addresses || []);
+    }
   };
 
   const handleSetDefaultAddress = async (id: number) => {
@@ -101,35 +133,28 @@ const Profile: React.FC = () => {
       isDefault: addr.id === id
     }));
     setAddresses(updatedAddresses);
-    const defaultAddr = updatedAddresses.find(addr => addr.id === id);
-    if (defaultAddr) {
-      setProfileData((prev: any) => ({ ...prev, address: defaultAddr.address, deliveryAddress: defaultAddr.address }));
-      await updateAddressOnBackend(defaultAddr.address, defaultAddr.address, updatedAddresses);
-    } else {
-      await updateAddressOnBackend(undefined, undefined, updatedAddresses);
-    }
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (user) await fetchProfileFromBackend(user.uid);
+    await updateAddressOnBackend(updatedAddresses);
   };
 
-  const updateAddressOnBackend = async (address?: string, deliveryAddress?: string, addressesArr?: any[]) => {
+  const handleRemoveAddress = async (id: number) => {
+    if (addresses.length === 1) {
+      alert('You must have at least one address.');
+      return;
+    }
+    const updatedAddresses = addresses.filter(addr => addr.id !== id);
+    setAddresses(updatedAddresses);
+    await updateAddressOnBackend(updatedAddresses);
+  };
+
+  const updateAddressOnBackend = async (addressesArr: any[]) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
-    let updateData: any = {};
-    if (address !== undefined) updateData.address = address;
-    if (deliveryAddress !== undefined) updateData.deliveryAddress = deliveryAddress;
-    if (addressesArr !== undefined) updateData.addresses = addressesArr;
     await fetch(`${API_URL}/api/users/${user.uid}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData),
+      body: JSON.stringify({ addresses: addressesArr }),
     });
-  };
-
-  const handleRemoveAddress = (id: number) => {
-    setAddresses(addresses.filter(addr => addr.id !== id));
   };
 
   const handleChangePassword = async () => {
@@ -161,7 +186,7 @@ const Profile: React.FC = () => {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
+          currentPassword: profileData.password === null ? undefined : passwordData.currentPassword,
           newPassword: passwordData.newPassword
         })
       });
@@ -187,6 +212,8 @@ const Profile: React.FC = () => {
       }
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      // Refetch profile after password update
+      await fetchProfileFromBackend(user.uid);
       const successModal = document.createElement('div');
       successModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
       successModal.innerHTML = `
@@ -251,7 +278,10 @@ const Profile: React.FC = () => {
     const res = await fetch(`${API_URL}/api/users/${uid}`);
     if (res.ok) {
       const profile = await res.json();
-      setProfileData((prev: any) => ({ ...profile, email: prev?.email || profile.email, photoURL: prev?.photoURL || profile.photoURL }));
+      setProfileData((prev: any) => ({
+        ...prev,
+        ...profile,
+      }));
     }
   };
 
@@ -268,9 +298,14 @@ const Profile: React.FC = () => {
       setLoading(false);
     };
     fetchProfile();
+    // Fallback: reload profile on page reload
+    window.addEventListener('focus', fetchProfile);
+    return () => window.removeEventListener('focus', fetchProfile);
   }, [user]);
 
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+
+  const defaultAddress = addresses.find(addr => addr.isDefault);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -327,16 +362,13 @@ const Profile: React.FC = () => {
           {/* Profile Header */}
           <div className="flex flex-col items-center mt-8 mb-10">
             <div className="relative">
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 border-4 border-white shadow-lg">
-                {loading ? (
-                  <div className="w-full h-full flex items-center justify-center">Loading...</div>
-                ) : (
-                  <img
-                    src={selectedImage ? selectedImage : (profileData.photoURL ? profileData.photoURL : "https://cdn-icons-png.flaticon.com/512/149/149071.png")}
-                    alt="Profile"
-                    className="w-full h-full object-cover object-top"
-                  />
-                )}
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)'
+                }}
+              >
+                <FaUserCircle className="text-white text-5xl" />
               </div>
               <div 
                 className="absolute bottom-0 right-0 bg-orange-500 rounded-full p-2 shadow-md cursor-pointer"
@@ -466,29 +498,14 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i className="fas fa-lock text-gray-400"></i>
-                      </div>
-                      <input
-                        type="password"
-                        name="password"
-                        id="password"
-                        className="focus:ring-orange-500 focus:border-orange-500 block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-md"
-                        value={profileData.password || ''}
-                        onChange={handleInputChange}
-                        disabled={!isEditing}
-                        placeholder={profileData.password === null ? 'Password not set (Google login)' : ''}
-                      />
-                      {profileData.password === null && (
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-yellow-600 text-xs">Not set</div>
-                      )}
-                      {isEditing && (
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                          <i className="fas fa-pencil-alt text-gray-400"></i>
-                        </div>
-                      )}
+                    <label>Password</label>
+                    <div>
+                      {profileData.password === null ? (
+                        <>
+                          <span className="text-yellow-600">Password not set (Google login)</span>
+                          <button onClick={() => setShowPasswordModal(true)} className="ml-2 text-blue-600 underline">Set Password</button>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -537,7 +554,7 @@ const Profile: React.FC = () => {
                     className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 !rounded-button cursor-pointer whitespace-nowrap"
                   >
                     <i className="fas fa-key mr-2"></i>
-                    Change Password
+                    {profileData.password === null ? 'Set Password' : 'Change Password'}
                   </button>
                   <button
                     type="button"
@@ -628,57 +645,104 @@ const Profile: React.FC = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                   <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
-                      <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-500" title="Close password modal">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {profileData.password === null ? 'Set Password' : 'Change Password'}
+                      </h3>
+                      <button onClick={() => {
+                        setShowPasswordModal(false);
+                        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        setPasswordError('');
+                        setPasswordSuccess('');
+                      }} className="text-gray-400 hover:text-gray-500" title="Close password modal">
                         <i className="fas fa-times"></i>
                       </button>
                     </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">Current Password</label>
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      setPasswordError('');
+                      setPasswordSuccess('');
+                      if (passwordData.newPassword !== passwordData.confirmPassword) {
+                        setPasswordError('New password and confirm password do not match.');
+                        return;
+                      }
+                      if (passwordData.newPassword.length < 6) {
+                        setPasswordError('Password must be at least 6 characters.');
+                        return;
+                      }
+                      try {
+                        const auth = getAuth();
+                        const user = auth.currentUser;
+                        if (!user) throw new Error('Not authenticated');
+                        const res = await fetch(`${API_URL}/api/users/${user.uid}/password`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            currentPassword: profileData.password === null ? undefined : passwordData.currentPassword,
+                            newPassword: passwordData.newPassword
+                          })
+                        });
+                        if (!res.ok) {
+                          const err = await res.json();
+                          setPasswordError(err.message || 'Failed to update password.');
+                          return;
+                        }
+                        setPasswordSuccess('Password updated successfully!');
+                        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        setTimeout(() => setShowPasswordModal(false), 1500);
+                      } catch (err) {
+                        setPasswordError('Failed to update password.');
+                      }
+                    }}>
+                      {profileData.password !== null && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                          <input
+                            type="password"
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                            value={passwordData.currentPassword}
+                            onChange={e => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            required
+                          />
+                        </div>
+                      )}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700">New Password</label>
                         <input
                           type="password"
-                          id="currentPassword"
-                          className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                          value={passwordData.currentPassword}
-                          onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">New Password</label>
-                        <input
-                          type="password"
-                          id="newPassword"
                           className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                           value={passwordData.newPassword}
-                          onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                          onChange={e => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                          required
                         />
                       </div>
-                      <div>
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
                         <input
                           type="password"
-                          id="confirmPassword"
                           className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                           value={passwordData.confirmPassword}
-                          onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                          onChange={e => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                          required
                         />
                       </div>
-                    </div>
-                    <div className="mt-6 flex justify-end space-x-3">
-                      <button
-                        onClick={() => setShowPasswordModal(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleChangePassword}
-                        className="px-4 py-2 bg-orange-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
-                      >
-                        Update Password
-                      </button>
-                    </div>
+                      {passwordError && <div className="text-red-600 mb-2">{passwordError}</div>}
+                      {passwordSuccess && <div className="text-green-600 mb-2">{passwordSuccess}</div>}
+                      <div className="flex justify-end space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordModal(false)}
+                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-orange-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 !rounded-button"
+                        >
+                          {profileData.password === null ? 'Set Password' : 'Update Password'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}
@@ -692,16 +756,51 @@ const Profile: React.FC = () => {
                         <i className="fas fa-times"></i>
                       </button>
                     </div>
-                    <div>
-                      <label htmlFor="newAddress" className="block text-sm font-medium text-gray-700">Address</label>
-                      <textarea
-                        id="newAddress"
-                        rows={3}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                        value={newAddress}
-                        onChange={(e) => setNewAddress(e.target.value)}
-                        placeholder="Enter your address..."
+                    <div className="grid grid-cols-1 gap-2">
+                      <input
+                        type="text"
+                        className="border rounded p-2"
+                        placeholder="Label (e.g. Home, Work)"
+                        value={newAddress.label || ''}
+                        onChange={e => setNewAddress({ ...newAddress, label: e.target.value })}
                       />
+                      <input
+                        type="text"
+                        className="border rounded p-2"
+                        placeholder="Street"
+                        value={newAddress.street || ''}
+                        onChange={e => setNewAddress({ ...newAddress, street: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        className="border rounded p-2"
+                        placeholder="City"
+                        value={newAddress.city || ''}
+                        onChange={e => setNewAddress({ ...newAddress, city: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        className="border rounded p-2"
+                        placeholder="State"
+                        value={newAddress.state || ''}
+                        onChange={e => setNewAddress({ ...newAddress, state: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        className="border rounded p-2"
+                        placeholder="Postal Code"
+                        value={newAddress.postalCode || ''}
+                        onChange={e => setNewAddress({ ...newAddress, postalCode: e.target.value })}
+                      />
+                      <label className="flex items-center mt-2">
+                        <input
+                          type="checkbox"
+                          checked={!!newAddress.isDefault}
+                          onChange={e => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
+                          className="mr-2"
+                        />
+                        Set as default address
+                      </label>
                     </div>
                     <div className="mt-6 flex justify-end space-x-3">
                       <button
@@ -739,30 +838,34 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="px-6 py-6 space-y-4">
                   {addresses.map((addr) => (
-                    <div key={addr.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div key={addr._id || addr.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0">
                           <i className="fas fa-map-marker-alt text-orange-500 text-lg"></i>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-900">{addr.address}</p>
-                          {addr.isDefault && (
+                          <div>
+                            <span>{addr.label}:</span>
+                            <span>
+                              {[addr.street, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')}
+                            </span>
+                          </div>
+                          {addr.isDefault ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
                               Default
                             </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSetDefaultAddress(addr.id)}
+                              className="text-sm text-orange-600 hover:text-orange-700 mt-1"
+                              title="Set as default address"
+                            >
+                              Set as Default
+                            </button>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {!addr.isDefault && (
-                          <button
-                            onClick={() => handleSetDefaultAddress(addr.id)}
-                            className="text-sm text-orange-600 hover:text-orange-700"
-                            title="Set as default address"
-                          >
-                            Set as Default
-                          </button>
-                        )}
                         <button
                           onClick={() => handleRemoveAddress(addr.id)}
                           className="text-sm text-red-600 hover:text-red-700"

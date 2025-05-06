@@ -12,6 +12,12 @@ router.get('/:firebaseUid', async (req, res, next) => {
       error.status = 404;
       throw error;
     }
+    // If no defaultAddress but has addresses, set the first as default
+    if (!user.defaultAddress && user.addresses && user.addresses.length > 0) {
+      const first = user.addresses[0];
+      user.defaultAddress = [first.street, first.city, first.state, first.postalCode].filter(Boolean).join(', ');
+      await user.save();
+    }
     res.json(user);
   } catch (err) {
     next(err);
@@ -33,9 +39,10 @@ router.post('/', async (req, res, next) => {
 // Update user profile
 router.patch('/:firebaseUid', async (req, res, next) => {
   try {
+    const { addresses } = req.body;
     const user = await User.findOneAndUpdate(
       { firebaseUid: req.params.firebaseUid },
-      { ...req.body, updatedAt: new Date() },
+      { $set: { addresses } },
       { new: true }
     );
     if (!user) {
@@ -81,6 +88,10 @@ router.patch('/:firebaseUid/address', async (req, res, next) => {
       // Add new address
       user.addresses.push(address);
     }
+    // If the new/edited address is marked as default, update defaultAddress
+    if (address && address.isDefault) {
+      user.defaultAddress = [address.street, address.city, address.state, address.postalCode].filter(Boolean).join(', ');
+    }
     user.updatedAt = new Date();
     await user.save();
     res.json(user);
@@ -112,20 +123,27 @@ router.patch('/:firebaseUid/password', async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
-    if (!user) {
-      const error = new Error('User not found');
-      error.status = 404;
-      throw error;
+    if (!user) throw new Error('User not found');
+    if (user.password && user.password !== currentPassword) {
+      throw new Error('Current password does not match');
     }
-    if ((user.password || '') !== (currentPassword || '')) {
-      const error = new Error('Current password does not match');
-      error.status = 400;
-      throw error;
-    }
+    // If user.password is null, allow setting new password without checking currentPassword
     user.password = newPassword;
     user.updatedAt = new Date();
     await user.save();
     res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/firebase/:firebaseUid', async (req, res, next) => {
+  try {
+    const user = await User.findOne({ firebaseUid: req.params.firebaseUid });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user); // This will include addresses as an array of objects
   } catch (err) {
     next(err);
   }

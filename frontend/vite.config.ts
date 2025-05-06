@@ -29,5 +29,8 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom']
+  },
+  define: {
+    'process.env': {} // 👈 this line fixes the "process is not defined" error
   }
 })

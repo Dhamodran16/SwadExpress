@@ -21,8 +21,7 @@ const Restaurants: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
-
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
@@ -82,6 +81,9 @@ const Restaurants: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
+        <button onClick={() => navigate(-1)} className="text-orange-600 hover:text-orange-700 mb-4 flex items-center">
+          <i className="fas fa-arrow-left mr-2"></i> Back
+        </button>
         <h1 className="text-3xl font-bold mb-8">All Restaurants</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {restaurants.map((restaurant) => (

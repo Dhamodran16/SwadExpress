@@ -6,6 +6,9 @@ import {
 } from 'firebase/auth';
 import styles from '../styles/signin.module.css'; // Ensure CSS file is responsive
 import signinImage from '../images/signin.png';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -24,7 +27,13 @@ const SignIn: React.FC = () => {
     }
   
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      // Ensure user exists in backend
+      await axios.post(`${API_URL}/api/users`, {
+        firebaseUid: userCred.user.uid,
+        displayName: userCred.user.displayName,
+        email: userCred.user.email
+      });
       setMsg({ type: 'success', text: 'Signed in! Redirecting…' });
       setTimeout(() => (window.location.href = '/home'), 1500);
     } catch (e: any) {
@@ -47,7 +56,18 @@ const SignIn: React.FC = () => {
   
   const handleGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      try {
+        await axios.post(`${API_URL}/api/users`, {
+          firebaseUid: result.user.uid,
+          displayName: result.user.displayName,
+          email: result.user.email
+        });
+      } catch (err: any) {
+        if (err.response && err.response.status !== 400) {
+          throw err;
+        }
+      }
       setMsg({ type: 'success', text: 'Google sign‑in successful! Redirecting…' });
       setTimeout(() => (window.location.href = '/'), 1500);
     } catch (e: any) {

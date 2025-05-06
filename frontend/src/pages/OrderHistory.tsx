@@ -8,7 +8,7 @@ const useAuthGuard = () => {
 };
 
 // Defined missing variables
-const items = []; // Example cart items array
+const items: OrderItem[] = []; // Example cart items array
 const subtotal = 0; // Example subtotal
 const deliveryFee = 0; // Example delivery fee
 const tax = 0; // Example tax
@@ -34,6 +34,8 @@ interface Order {
   orderNumber: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+
 const OrderHistory: React.FC = () => {  
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,8 +48,8 @@ const OrderHistory: React.FC = () => {
     const fetchOrders = async () => {
       const auth = getAuth();
       const user = auth.currentUser;
-      const userId = user ? user.uid : null;
-      if (!userId) {
+      const firebaseUid = user?.uid;
+      if (!firebaseUid) {
         setError('You must be logged in to view your orders.');
         setLoading(false);
         return;
@@ -55,10 +57,10 @@ const OrderHistory: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`http://localhost:5001/api/orders/user/${userId}`);
+        const res = await fetch(`${API_URL}/api/orders/firebase/${firebaseUid}`);
         if (!res.ok) throw new Error('Failed to fetch orders');
-        const data = await res.json();
-        setOrders(data);
+        const orders = await res.json();
+        setOrders(orders);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -89,7 +91,7 @@ const OrderHistory: React.FC = () => {
     };
 
     try {
-      const res = await fetch('http://localhost:5001/api/orders', {
+      const res = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -144,11 +146,17 @@ const OrderHistory: React.FC = () => {
                   </div>
                   <div className="text-lg font-bold text-gray-800">${order.total.toFixed(2)}</div>
                 </div>
+                <button
+                  onClick={() => navigate(`/cart-details/${order._id}`)}
+                  className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  View Details
+                </button>
               </div>
             ))}
           </div>
         )}
-        <button onClick={() => navigate('/profile')} className="mt-8 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Back to Profile</button>
+        <button onClick={() => navigate(-1)} className="mt-8 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Back</button>
       </div>
     </div>
   );

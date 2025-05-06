@@ -28,7 +28,9 @@ const OrderSchema = new mongoose.Schema({
       cardCVV: String,
       digitalPaymentCode: String
     }
-  }
+  },
+  deliveryAddress: { type: Object, required: true },
+  userFirebaseUid: { type: String, required: true },
 });
 
 export default mongoose.model('Order', OrderSchema);

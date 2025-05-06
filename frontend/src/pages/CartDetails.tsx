@@ -1,13 +1,48 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
 
-const App: React.FC = () => {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+
+const CartDetails: React.FC = () => {
   const navigate = useNavigate();
+  const { orderId } = useParams();
+  const { items } = useCart();
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [itemEstimates, setItemEstimates] = useState<number[]>([]);
+  const [averageEstimate, setAverageEstimate] = useState<number>(0);
+  const [statusStep, setStatusStep] = useState<'processing' | 'preparing' | 'outForDelivery' | 'delivered'>('processing');
+  const [orderTime, setOrderTime] = useState<Date | null>(null);
 
+  function getAverageDeliveryTime(items: any[]) {
+    if (!items || items.length === 0) return 'N/A';
+    let totalMin = 0, totalMax = 0, count = 0;
+    items.forEach((item: any) => {
+      if (item.deliveryTime) {
+        // deliveryTime should be a string like "30-45"
+        const [min, max] = item.deliveryTime.split('-').map(Number);
+        if (!isNaN(min) && !isNaN(max)) {
+          totalMin += min;
+          totalMax += max;
+          count++;
+        }
+      }
+    });
+    if (count === 0) return 'N/A';
+    const avgMin = Math.round(totalMin / count);
+    const avgMax = Math.round(totalMax / count);
+    return `${avgMin}-${avgMax} minutes`;
+  }
+
+  function generateOrderNumber() {
+    const randomNum = Math.floor(10000 + Math.random() * 90000);
+    return `ORD-${randomNum}`;
+  }
   // Order details
-  const orderNumber = "ORD-38291";
+  const orderNumber = generateOrderNumber();
   const estimatedDelivery = "30-45 minutes";
   const deliveryAddress = {
     street: '123 Main Street',
@@ -18,55 +53,90 @@ const App: React.FC = () => {
   };
   const paymentMethod = "Visa •••• 4582";
  
-  // Cart items
-  const cartItems = [
-    {
-      id: 'item1',
-      name: 'Double Cheese Burger',
-      restaurantName: 'Burger Palace',
-      price: 12.99,
-      quantity: 2,
-      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20juicy%20double%20cheeseburger%20with%20melted%20cheese%2C%20fresh%20lettuce%2C%20tomato%2C%20and%20sauce%20on%20a%20sesame%20seed%20bun%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=1&orientation=squarish',
-      customization: 'Extra cheese, No onions',
-      specialInstructions: 'Cook well done please'
-    },
-    {
-      id: 'item2',
-      name: 'Margherita Pizza',
-      restaurantName: 'Pizza Heaven',
-      price: 18.50,
-      quantity: 1,
-      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20margherita%20pizza%20with%20melted%20mozzarella%20cheese%20and%20fresh%20basil%20leaves%20on%20a%20thin%20crust%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=2&orientation=squarish',
-      customization: 'Thin crust'
-    },
-    {
-      id: 'item3',
-      name: 'Chicken Caesar Salad',
-      restaurantName: 'Fresh Greens',
-      price: 9.99,
-      quantity: 1,
-      image: 'https://readdy.ai/api/search-image?query=A%20professional%20food%20photography%20of%20a%20fresh%20chicken%20caesar%20salad%20with%20grilled%20chicken%20strips%2C%20crisp%20romaine%20lettuce%2C%20parmesan%20cheese%2C%20and%20croutons%2C%20on%20a%20minimalist%20light%20background%2C%20high-quality%2C%20appetizing%2C%20commercial%20food%20photography&width=100&height=100&seq=3&orientation=squarish',
-    }
-  ];
- 
   // Calculate cart totals
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = 3.99;
   const tax = subtotal * 0.08; // 8% tax
   const total = subtotal + deliveryFee + tax;
+
+  useEffect(() => {
+    if (!orderId) return;
+    fetch(`${API_URL}/api/orders/${orderId}`)
+      .then(res => res.json())
+      .then(data => {
+        setOrder(data);
+        setLoading(false);
+        console.log('Fetched order:', data);
+      });
+  }, [orderId]);
+
+  // Assign random estimated times to each item (25-30 min)
+  useEffect(() => {
+    if (order && order.items) {
+      const estimates = order.items.map(() => Math.floor(Math.random() * 6) + 25); // 25-30 min
+      setItemEstimates(estimates);
+      const avg = estimates.reduce((a: number, b: number) => a + b, 0) / estimates.length;
+      setAverageEstimate(avg);
+      // Set order time (use order.createdAt if available, else now)
+      setOrderTime(order.createdAt ? new Date(order.createdAt) : new Date());
+    }
+  }, [order]);
+
+  // Update status based on time
+  useEffect(() => {
+    if (!orderTime || !averageEstimate) return;
+    const now = new Date();
+    const prepEnd = new Date(orderTime.getTime() + (averageEstimate * 0.4) * 60000); // 40% prep
+    const deliveryEnd = new Date(orderTime.getTime() + (averageEstimate * 0.8) * 60000); // 80% out for delivery
+    const deliveredEnd = new Date(orderTime.getTime() + averageEstimate * 60000);
+    if (now < prepEnd) setStatusStep('preparing');
+    else if (now < deliveryEnd) setStatusStep('outForDelivery');
+    else if (now < deliveredEnd) setStatusStep('outForDelivery');
+    else setStatusStep('delivered');
+  }, [orderTime, averageEstimate]);
+
+  if (loading) {
+    return <div className="text-center py-12">Loading...</div>;
+  }
+  if (!order) {
+    return <div className="text-center text-red-500 py-12">Order not found.</div>;
+  }
+
+  // Parse delivery address if it's a string
+  let addressDisplay = order.deliveryAddress;
+  if (typeof addressDisplay === 'string') {
+    addressDisplay = <p className="text-gray-800">{order.deliveryAddress}</p>;
+  } else if (typeof addressDisplay === 'object') {
+    addressDisplay = (
+      <>
+        <p className="text-gray-800">
+          {[addressDisplay.label, addressDisplay.street, addressDisplay.city, addressDisplay.state, addressDisplay.postalCode].filter(Boolean).join(', ')}
+        </p>
+      </>
+    );
+  }
+
+  // Payment method display
+  let paymentDisplay = '';
+  if (order.paymentMethod?.type === 'credit') {
+    paymentDisplay = `Card ending in ${order.paymentMethod.details.cardNumber?.slice(-4)}`;
+  } else if (order.paymentMethod?.type === 'digital') {
+    paymentDisplay = 'Digital Payment';
+  } else if (order.paymentMethod?.type === 'cash') {
+    paymentDisplay = 'Cash on Delivery';
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
-          <a
-            href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/d61aa1b8-f767-47ff-989a-c418a873ce2b"
-            data-readdy="true"
+          <button
+            onClick={() => navigate(-1)}
             className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer"
           >
             <i className="fas fa-arrow-left text-lg"></i>
-          </a>
+          </button>
           <h1 className="text-3xl font-semibold text-gray-800">Order Confirmed</h1>
         </div>
        
@@ -112,11 +182,13 @@ const App: React.FC = () => {
             </div>
             <div className="bg-gray-100 px-6 py-3 rounded-lg">
               <p className="text-sm text-gray-600">Estimated Delivery</p>
-              <p className="font-bold text-gray-800">{estimatedDelivery}</p>
+              <p className="font-medium text-gray-800">
+                {averageEstimate ? `${Math.round(averageEstimate)} minutes` : 'N/A'}
+              </p>
             </div>
           </div>
         </div>
-       
+        
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Column - Order Details */}
           <div className="lg:w-2/3">
@@ -131,8 +203,11 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold text-gray-800 mb-2">Delivery Address</h2>
-                    <p className="text-gray-800">{deliveryAddress.street}</p>
-                    <p className="text-gray-600">{deliveryAddress.apt}, {deliveryAddress.city}, {deliveryAddress.state} {deliveryAddress.zip}</p>
+                    <div>
+                      {order.deliveryAddress
+                        ? [order.deliveryAddress.label, order.deliveryAddress.street, order.deliveryAddress.city, order.deliveryAddress.state, order.deliveryAddress.postalCode].filter(Boolean).join(', ')
+                        : 'No address found'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -151,7 +226,7 @@ const App: React.FC = () => {
                     <h2 className="text-xl font-semibold text-gray-800 mb-2">Payment Method</h2>
                     <div className="flex items-center">
                       <i className="fab fa-cc-visa text-blue-700 mr-2 text-2xl"></i>
-                      <p className="text-gray-800">{paymentMethod}</p>
+                      <p className="text-gray-800">{paymentDisplay}</p>
                     </div>
                   </div>
                 </div>
@@ -164,37 +239,44 @@ const App: React.FC = () => {
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">Order Items</h2>
                
                 <div className="space-y-6">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-start">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden mr-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover object-top"
-                        />
-                      </div>
-                      <div className="flex-grow">
-                        <div className="flex justify-between">
-                          <p className="text-gray-800 font-medium">{item.name}</p>
-                          <p className="text-gray-800 font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                  {order.items && order.items.length > 0 ? (
+                    order.items.map((item: any, idx: number) => (
+                      <div key={item.menuItemId || item._id} className="flex items-start">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden mr-4">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover object-top"
+                          />
                         </div>
-                        <p className="text-gray-600 text-sm">{item.restaurantName}</p>
-                        {item.customization && (
-                          <p className="text-gray-600 text-sm mt-1">
-                            <span className="font-medium">Customization:</span> {item.customization}
-                          </p>
-                        )}
-                        {item.specialInstructions && (
-                          <p className="text-gray-600 text-sm">
-                            <span className="font-medium">Instructions:</span> {item.specialInstructions}
-                          </p>
-                        )}
-                        <div className="mt-2 inline-block bg-gray-100 px-2 py-1 rounded text-sm text-gray-700">
-                          Qty: {item.quantity}
+                        <div className="flex-grow">
+                          <div className="flex justify-between">
+                            <p className="text-gray-800 font-medium">{item.name}</p>
+                            <p className="text-gray-800 font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                          <p className="text-gray-600 text-sm">{item.restaurantName}</p>
+                          {item.customization && (
+                            <p className="text-gray-600 text-sm mt-1">
+                              <span className="font-medium">Customization:</span> {item.customization}
+                            </p>
+                          )}
+                          {item.specialInstructions && (
+                            <p className="text-gray-600 text-sm">
+                              <span className="font-medium">Instructions:</span> {item.specialInstructions}
+                            </p>
+                          )}
+                          <div className="mt-2 inline-block bg-gray-100 px-2 py-1 rounded text-sm text-gray-700">
+                            Qty: {item.quantity}
+                          </div>
+                          <div className="mt-1 text-xs text-indigo-600">
+                            Estimated: {itemEstimates[idx] ? `${itemEstimates[idx]} min` : 'N/A'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-gray-500">No items found for this order.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -214,8 +296,10 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         <div>
-                      <p className="font-medium text-gray-800">Order Confirmed</p>
-                      <p className="text-sm text-gray-600">May 4, 2025 • 12:30 PM</p>
+                      <p className="font-medium text-gray-800">{statusStep}</p>
+                      <p className="text-sm text-gray-600">
+                        {orderTime ? orderTime.toLocaleString() : 'Loading...'}
+                      </p>
                     </div>
                         </div>
                  
@@ -227,7 +311,7 @@ const App: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">Preparing Your Order</p>
-                      <p className="text-sm text-gray-600">Estimated: 10-15 minutes</p>
+                      <p className="text-sm text-gray-600">Estimated: 0–{averageEstimate ? Math.round(averageEstimate * 0.4) : '?'} min</p>
                     </div>
                   </div>
                  
@@ -239,7 +323,7 @@ const App: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">Out for Delivery</p>
-                      <p className="text-sm text-gray-600">Estimated: 20-30 minutes</p>
+                      <p className="text-sm text-gray-600">Estimated: {averageEstimate ? Math.round(averageEstimate * 0.4) : '?'}–{averageEstimate ? Math.round(averageEstimate * 0.8) : '?'} min</p>
                     </div>
                   </div>
                  
@@ -251,7 +335,7 @@ const App: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">Delivered</p>
-                      <p className="text-sm text-gray-600">Estimated: 30-45 minutes</p>
+                      <p className="text-sm text-gray-600">Estimated: {averageEstimate ? Math.round(averageEstimate * 0.8) : '?'}–{averageEstimate ? Math.round(averageEstimate) : '?'} min</p>
                     </div>
                   </div>
                 </div>
@@ -292,7 +376,9 @@ const App: React.FC = () => {
                   <i className="fas fa-clock text-indigo-600 mr-3"></i>
                   <div>
                     <p className="text-sm text-gray-600">Estimated Delivery Time</p>
-                    <p className="font-medium text-gray-800">{estimatedDelivery}</p>
+                    <p className="font-medium text-gray-800">
+                      {averageEstimate ? `${Math.round(averageEstimate)} minutes` : 'N/A'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -310,18 +396,18 @@ const App: React.FC = () => {
              
               {/* Action Buttons */}
               <div className="space-y-4">
-                <button className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 !rounded-button cursor-pointer whitespace-nowrap">
+                <button className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 !rounded-button cursor-pointer whitespace-nowrap"
+                  onClick={() => navigate('/orders')}
+                >
                   <i className="fas fa-map-marker-alt mr-2"></i> Track Order
                 </button>
                
-                <a
-                  href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/d61aa1b8-f767-47ff-989a-c418a873ce2b"
-                  data-readdy="true"
+                <button
                   className="block w-full py-3 px-4 bg-white border border-gray-300 text-indigo-600 font-medium rounded-lg hover:bg-gray-50 text-center !rounded-button cursor-pointer whitespace-nowrap"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/home')}
                 >
                   <i className="fas fa-home mr-2"></i> Return to Home
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -380,4 +466,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default CartDetails;

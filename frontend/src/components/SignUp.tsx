@@ -7,6 +7,9 @@ import {
 } from 'firebase/auth';
 import styles from '../styles/signup.module.css';
 import signupImage from '../images/signup.png';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -20,16 +23,32 @@ const SignUp: React.FC = () => {
     try {
       const uc = await createUserWithEmailAndPassword(auth, email, password);
       await sendEmailVerification(uc.user);
+      // Create user in backend
+      await axios.post(`${API_URL}/api/users`, {
+        firebaseUid: uc.user.uid,
+        displayName: name,
+        email: email
+      });
       setMsg({ type: 'success', text: 'Account created! Check your email.' });
       setTimeout(() => window.location.href = '/home', 1500);
     } catch (e: any) {
-      setMsg({ type: 'error', text: e.message });
+      if (e.code === 'auth/email-already-in-use') {
+        setMsg({ type: 'error', text: 'An account with this email already exists.' });
+      } else {
+        setMsg({ type: 'error', text: e.message });
+      }
     }
   };
 
   const handleGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      // Create user in backend
+      await axios.post(`${API_URL}/api/users`, {
+        firebaseUid: result.user.uid,
+        displayName: result.user.displayName,
+        email: result.user.email
+      });
       window.location.href = '/';
     } catch (e: any) {
       setMsg({ type: 'error', text: e.message });

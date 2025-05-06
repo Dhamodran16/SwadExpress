@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useCart } from '../context/CartContext';
 import { FaStar, FaMotorcycle, FaMapMarkerAlt } from 'react-icons/fa';
+import { restaurantAPI, menuAPI, orderAPI } from '../services/api';
+import { getAuth } from 'firebase/auth';
 
 interface Restaurant {
   _id: string;
@@ -33,6 +35,7 @@ interface MenuItem {
   isVegetarian: boolean;
   isSpicy: boolean;
   isAvailable: boolean;
+  deliveryTime?: string;
 }
 
 const RestaurantDetails: React.FC = () => {
@@ -44,8 +47,6 @@ const RestaurantDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -53,17 +54,25 @@ const RestaurantDetails: React.FC = () => {
         setError(null);
 
         // Fetch restaurant details
-        const restaurantResponse = await fetch(`${API_URL}/api/restaurants/${id}`);
-        if (!restaurantResponse.ok) throw new Error('Failed to fetch restaurant details');
-        const restaurantData = await restaurantResponse.json();
-        setRestaurant(restaurantData);
+        const restaurantData = await restaurantAPI.getById(id ?? '');
+        setRestaurant(restaurantData.data);
 
         // Fetch menu items for this restaurant
-        const menuItemsResponse = await fetch(`${API_URL}/api/menu/restaurant/${id}`);
-        if (!menuItemsResponse.ok) throw new Error('Failed to fetch menu items');
-        const menuItemsData = await menuItemsResponse.json();
-        setMenuItems(menuItemsData);
+        const menuItemsData = await menuAPI.getAll();
+        setMenuItems(menuItemsData.data.filter((item: MenuItem) => item.restaurantId._id === id));
 
+        // Fetch and store MongoDB userId if not present
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user && !window.localStorage.getItem('userId')) {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/firebase/${user.uid}`);
+          if (res.ok) {
+            const mongoUser = await res.json();
+            if (mongoUser && mongoUser._id) {
+              window.localStorage.setItem('userId', mongoUser._id);
+            }
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       } finally {
@@ -74,27 +83,23 @@ const RestaurantDetails: React.FC = () => {
     fetchData();
   }, [id]);
 
-  const handleAddToCart = (item: MenuItem) => {
+  const handleAddToCart = async (item: any) => {
     try {
-      if (!item.isAvailable) {
-        toast.error('This item is currently unavailable');
-        return;
-      }
-
+      // Add to cart context
       addItem({
-        id: item._id || item.id || '',
+        id: item._id ?? item.id ?? '',
         name: item.name,
         price: item.price,
         quantity: 1,
         image: item.image,
         restaurantId: item.restaurantId._id,
-        restaurantName: item.restaurantId.name
+        restaurantName: item.restaurantId.name,
+        deliveryTime: item.deliveryTime || ''
       });
-      
       toast.success(`${item.name} added to cart!`);
-    } catch (error) {
-      console.error('Error adding item to cart:', error);
-      toast.error('Failed to add item to cart. Please try again.');
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add item to cart');
     }
   };
 

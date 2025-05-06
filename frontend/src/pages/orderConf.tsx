@@ -5,20 +5,37 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { getAuth } from 'firebase/auth';
 
-const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL;
+
+function generateOrderNumber() {
+  const randomNum = Math.floor(10000 + Math.random() * 90000);
+  return `ORD-${randomNum}`;
+}
+
+function getAverageDeliveryTime(items) {
+  if (!items || items.length === 0) return 'N/A';
+  let totalMin = 0, totalMax = 0, count = 0;
+  items.forEach(item => {
+    if (item.deliveryTime) {
+      // deliveryTime should be a string like "30-45"
+      const [min, max] = item.deliveryTime.split('-').map(Number);
+      if (!isNaN(min) && !isNaN(max)) {
+        totalMin += min;
+        totalMax += max;
+        count++;
+      }
+    }
+  });
+  if (count === 0) return 'N/A';
+  const avgMin = Math.round(totalMin / count);
+  const avgMax = Math.round(totalMax / count);
+  return `${avgMin}-${avgMax} minutes`;
+}
 
 const OrderConf: React.FC = () => {
   const { items, getTotalPrice, clearCart } = useCart();
   const [selectedAddress, setSelectedAddress] = useState(0);
-  const savedAddresses = [
-    {
-      street: '123 Main Street',
-      apt: 'Apt 4B',
-      city: 'San Francisco',
-      state: 'CA',
-      zip: '94105'
-    }
-  ];
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [deliveryType, setDeliveryType] = useState('asap');
   const [selectedTime, setSelectedTime] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('credit');
@@ -31,6 +48,8 @@ const OrderConf: React.FC = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [showOrderPlaced, setShowOrderPlaced] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState<any>(null);
+  const [userAddresses, setUserAddresses] = useState<any[]>([]);
   const navigate = useNavigate();
 
   // Calculate cart totals
@@ -103,30 +122,21 @@ const OrderConf: React.FC = () => {
   // Place order handler
   const handlePlaceOrder = async (e: React.MouseEvent) => {
     e.preventDefault();
+    console.log('handlePlaceOrder called');
+    
+    // Validate required fields
+    const defaultAddress = userAddresses.find(addr => addr.isDefault);
+    if (!defaultAddress) {
+      toast.error('Please set a default address in your profile.');
+      return;
+    }
     if (!acceptTerms) {
       toast.error('Please accept the terms and conditions');
       return;
     }
-
-    switch (paymentMethod) {
-      case 'credit':
-        if (!validateCardDetails()) {
-          toast.error('Please enter valid card details');
-          return;
-        }
-        break;
-      case 'digital':
-        if (!digitalPaymentCode) {
-          toast.error('Please generate a payment code');
-          return;
-        }
-        break;
-      case 'cash':
-        // No validation needed for cash on delivery
-        break;
-      default:
-        toast.error('Please select a valid payment method');
-        return;
+    if (paymentMethod === 'credit' && !validateCardDetails()) {
+      toast.error('Please enter valid card details');
+      return;
     }
 
     // Get the current user
@@ -137,16 +147,26 @@ const OrderConf: React.FC = () => {
       return;
     }
 
-    // Prepare order data
+    // Prepare order data (matches backend schema exactly)
+    const userId = window.localStorage.getItem('userId');
+    if (!userId) {
+      toast.error('User not found. Please log in again.');
+      return;
+    }
     const orderData = {
-      userId: user.uid,
-      items: items.map(item => ({
-        ...item,
-        restaurantName: item.restaurantName || 'Unknown Restaurant',
+      userId,
+      items: items.map((item: any) => ({
+        menuItemId: item._id || item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        restaurantName: item.restaurantName || '',
+        image: item.image || ''
       })),
-      total: getTotalPrice() + 3.99 + getTotalPrice() * 0.08, // subtotal + deliveryFee + tax
-      status: 'delivered',
-      createdAt: new Date().toISOString(),
+      total: getTotalPrice() + deliveryFee + tax,
+      status: 'processing',
+      orderNumber: generateOrderNumber(),
+      deliveryAddress: defaultAddress || null,
       paymentMethod: {
         type: paymentMethod,
         details: paymentMethod === 'credit' ? {
@@ -157,26 +177,40 @@ const OrderConf: React.FC = () => {
         } : paymentMethod === 'digital' ? {
           digitalPaymentCode: digitalPaymentCode
         } : {}
-      }
+      },
+      userFirebaseUid: user.uid
     };
 
-    // Send order to backend
     try {
-      const res = await fetch(`${API_URL}/api/orders`, {
+      const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(orderData)
       });
-      if (res.ok) {
-        const order = await res.json();
-        setOrderNumber(order.orderNumber);
-        clearCart();
-        setShowOrderPlaced(true);
-      } else {
-        const error = await res.json();
-        toast.error(error.message || 'Failed to place order');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Order creation error:', errorData);
+        if (errorData.errors) {
+          const errorMessages = errorData.errors.map((err: any) => {
+            if (!err.field || !err.message) return JSON.stringify(err);
+            return `${err.field}: ${err.message}`;
+          }).join(', ');
+          toast.error(`Validation Error: ${errorMessages}`);
+        } else {
+          toast.error(errorData.message || 'Failed to place order');
+        }
+        return;
       }
+
+      const order = await response.json();
+      console.log('Order created successfully:', order);
+      setOrderNumber(order.orderNumber);
+      clearCart();
+      setShowOrderPlaced(true);
+      navigate(`/cart-details/${order._id}`);
     } catch (error) {
+      console.error('Error placing order:', error);
       toast.error('An error occurred while placing the order');
     }
   };
@@ -187,6 +221,23 @@ const OrderConf: React.FC = () => {
     if (method === 'digital') {
       setDigitalPaymentCode(generatePaymentCode());
     }
+  };
+
+  const getAverageDeliveryTime = () => {
+    if (!items.length) return 'N/A';
+    let totalMin = 0, totalMax = 0, count = 0;
+    items.forEach(item => {
+      if (item.deliveryTime) {
+        const [min, max] = item.deliveryTime.split('-').map(Number);
+        totalMin += min;
+        totalMax += max;
+        count++;
+      }
+    });
+    if (!count) return 'N/A';
+    const avgMin = Math.round(totalMin / count);
+    const avgMax = Math.round(totalMax / count);
+    return `${avgMin}-${avgMax} minutes`;
   };
 
   useEffect(() => {
@@ -217,6 +268,29 @@ const OrderConf: React.FC = () => {
     };
     checkProfile();
   }, [navigate]);
+
+  useEffect(() => {
+    // Fetch and store MongoDB userId if not present
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      fetch(`${API_URL}/api/users/firebase/${user.uid}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(mongoUser => {
+          if (mongoUser && mongoUser._id) {
+            window.localStorage.setItem('userId', mongoUser._id);
+          }
+          if (mongoUser && mongoUser.addresses && mongoUser.addresses.length > 0) {
+            const def = mongoUser.addresses.find((a: any) => a.isDefault);
+            setUserAddresses(mongoUser.addresses);
+            setDeliveryAddress(def || mongoUser.addresses[0]);
+          } else {
+            setUserAddresses([]);
+            setDeliveryAddress(null);
+          }
+        });
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -279,8 +353,7 @@ const OrderConf: React.FC = () => {
         {/* Header */}
         <div className="flex items-center mb-8">
           <a
-            href="https://readdy.ai/home/e7399373-5bc5-457c-9e6c-d2aad8b7f67d/8d60ad80-4dbb-4c2e-899a-03a0a5df1f9c"
-            data-readdy="true"
+            onClick={() => navigate(-1)}
             className="text-indigo-600 hover:text-indigo-800 mr-4 cursor-pointer"
           >
             <i className="fas fa-arrow-left text-lg"></i>
@@ -320,115 +393,12 @@ const OrderConf: React.FC = () => {
               <div className="p-6 border-b border-gray-100">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold text-gray-800">Delivery Address</h2>
-                  <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium cursor-pointer whitespace-nowrap">
-                    + Add New Address
-                  </button>
                 </div>
-                {savedAddresses.length > 0 ? (
-                  <div>
-                    {savedAddresses.map((address, index) => (
-                      <div
-                        key={index}
-                        className={`p-4 border rounded-lg mb-4 cursor-pointer ${selectedAddress === index ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200'}`}
-                        onClick={() => setSelectedAddress(index)}
-                      >
-                        <div className="flex items-start">
-                          <div className="mr-3 mt-1">
-                            <div className={`w-5 h-5 rounded-full border ${selectedAddress === index ? 'border-indigo-600' : 'border-gray-400'} flex items-center justify-center`}>
-                              {selectedAddress === index && <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>}
-                            </div>
-                          </div>
-                          <div className="flex-grow">
-                            <p className="text-gray-800 font-medium">{address.street}</p>
-                            <p className="text-gray-600 text-sm">{address.apt}, {address.city}, {address.state} {address.zip}</p>
-                          </div>
-                          <button className="text-indigo-600 hover:text-indigo-800 text-sm cursor-pointer whitespace-nowrap">
-                            Edit
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                <div className="p-4 border rounded-lg mb-4 bg-gray-100">
+                  <div className="text-gray-800 font-medium">
+                    {deliveryAddress ? [deliveryAddress.label, deliveryAddress.street, deliveryAddress.city, deliveryAddress.state, deliveryAddress.postalCode].filter(Boolean).join(', ') : 'No address found'}
                   </div>
-                ) : (
-                  <form className="space-y-4">
-                    <div>
-                      <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">
-                        Street Address
-                      </label>
-                      <input
-                        type="text"
-                        id="street"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        placeholder="Enter your street address"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="apt" className="block text-sm font-medium text-gray-700 mb-1">
-                        Apartment, Suite, etc. (optional)
-                      </label>
-                      <input
-                        type="text"
-                        id="apt"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        placeholder="Apt, Suite, Floor, etc."
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          id="city"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                          placeholder="City"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-                          State
-                        </label>
-                        <div className="relative">
-                          <select
-                            id="state"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm appearance-none"
-                          >
-                            <option value="">Select State</option>
-                            <option value="CA">California</option>
-                            <option value="NY">New York</option>
-                            <option value="TX">Texas</option>
-                            <option value="FL">Florida</option>
-                          </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                            <i className="fas fa-chevron-down text-gray-400"></i>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="zip" className="block text-sm font-medium text-gray-700 mb-1">
-                        ZIP Code
-                      </label>
-                      <input
-                        type="text"
-                        id="zip"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        placeholder="ZIP Code"
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        id="save-address"
-                        type="checkbox"
-                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                      />
-                      <label htmlFor="save-address" className="ml-2 block text-sm text-gray-700">
-                        Save this address for future orders
-                      </label>
-                    </div>
-                  </form>
-                )}
+                </div>
               </div>
             </div>
             {/* Delivery Time Section */}
@@ -624,7 +594,10 @@ const OrderConf: React.FC = () => {
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-medium text-gray-700">Items ({items.length})</h3>
-                  <button className="text-indigo-600 text-sm font-medium cursor-pointer whitespace-nowrap">
+                  <button
+                    className="text-indigo-600 text-sm font-medium cursor-pointer whitespace-nowrap"
+                    onClick={() => setShowOrderDetails(true)}
+                  >
                     View Details
                   </button>
                 </div>
@@ -678,7 +651,7 @@ const OrderConf: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Estimated Delivery Time</p>
                     <p className="font-medium text-gray-800">
-                      {deliveryType === 'asap' ? '30-45 minutes' : selectedTime ? `Today, ${selectedTime.replace('-', ' - ')}` : 'Select a time slot'}
+                      {getAverageDeliveryTime() === 'N/A' ? '30-45 minutes' : getAverageDeliveryTime()}
                     </p>
                   </div>
                 </div>
@@ -699,8 +672,9 @@ const OrderConf: React.FC = () => {
                 </div>
                 <button
                   onClick={handlePlaceOrder}
-                  className={`block w-full py-3 px-4 rounded-lg font-medium !rounded-button cursor-pointer whitespace-nowrap text-center ${acceptTerms ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed pointer-events-none'}`}
-                > 
+                  className={`block w-full py-3 px-4 rounded-lg font-medium !rounded-button cursor-pointer whitespace-nowrap text-center ${deliveryAddress && acceptTerms ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed pointer-events-none'}`}
+                  disabled={!deliveryAddress || !acceptTerms}
+                >
                   Place Order
                 </button>
                 <button

@@ -20,6 +20,7 @@ interface MenuItem {
   isVegetarian: boolean;
   isSpicy: boolean;
   isAvailable: boolean;
+  deliveryTime?: string;
 }
 
 interface Restaurant {
@@ -44,7 +45,7 @@ const ViewMenuItem: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,7 +94,8 @@ const ViewMenuItem: React.FC = () => {
         quantity: 1,
         image: menuItem.image,
         restaurantId: menuItem.restaurantId._id,
-        restaurantName: menuItem.restaurantId.name
+        restaurantName: menuItem.restaurantId.name,
+        deliveryTime: menuItem.deliveryTime
       });
       
       toast.success(`${menuItem.name} added to cart!`);
