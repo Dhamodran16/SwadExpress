@@ -9,7 +9,7 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:5003',
+        target: process.env.VITE_API_URL || 'http://localhost:5003',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
@@ -31,6 +31,22 @@ export default defineConfig({
     include: ['react', 'react-dom']
   },
   define: {
-    'process.env': {} // 👈 this line fixes the "process is not defined" error
+    'process.env': {}
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
+  preview: {
+    port: 5174,
+    strictPort: true,
+    host: true
   }
 })
