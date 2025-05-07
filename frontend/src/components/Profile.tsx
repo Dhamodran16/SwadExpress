@@ -45,6 +45,11 @@ const Profile: React.FC = () => {
     setProfileData((prev: any) => ({ ...prev, [name]: value }));
   };
 
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setProfileData((prev: any) => ({ ...prev, [name]: value }));
+  };
+
   const handleSaveChanges = async () => {
     if (!user) return;
     setLoading(true);
@@ -73,11 +78,28 @@ const Profile: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     setLoading(true);
     try {
-      await fetch(`${API_URL}/api/users/${user.uid}`, { method: 'DELETE' });
+      // 1. Delete from MongoDB
+      const mongoResponse = await fetch(`${API_URL}/api/users/${user.uid}`, { 
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!mongoResponse.ok) {
+        throw new Error('Failed to delete user from database');
+      }
+
+      // 2. Delete from Firebase
+      await user.delete();
+
+      // 3. Clear local storage
+      window.localStorage.removeItem('userId');
+      
+      // 4. Sign out and redirect
       await signOut(auth);
       window.location.replace('/');
     } catch (err) {
-      setShowSuccessMessage('Failed to delete account.');
+      console.error('Error deleting account:', err);
+      setShowSuccessMessage('Failed to delete account. Please try again.');
     }
     setLoading(false);
   };
@@ -98,16 +120,29 @@ const Profile: React.FC = () => {
     alert('Camera capture not implemented in this demo.');
   };
 
+  const handleAddOrEditAddress = async (address: any, addressId: any = null) => {
+    if (!user) return;
+    await fetch(`${API_URL}/api/users/${user.uid}/address`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, addressId }),
+    });
+    await fetchProfileFromBackend(user.uid);
+  };
+
+  const handleRemoveAddress = async (addressId: any) => {
+    if (!user) return;
+    await fetch(`${API_URL}/api/users/${user.uid}/address/${addressId}`, {
+      method: 'DELETE',
+    });
+    await fetchProfileFromBackend(user.uid);
+  };
+
   const handleAddAddress = async () => {
     if (!newAddress.label || !newAddress.street || !newAddress.city || !newAddress.state || !newAddress.postalCode) return;
-    let updatedAddresses = addresses;
-    if (newAddress.isDefault) {
-      updatedAddresses = addresses.map(addr => ({ ...addr, isDefault: false }));
-    }
-    const addressToAdd = { ...newAddress, id: Date.now() };
-    const finalAddresses = [...updatedAddresses, addressToAdd];
-    setAddresses(finalAddresses);
     setShowAddressModal(false);
+    if (!user) return;
+    await handleAddOrEditAddress(newAddress);
     setNewAddress({
       label: '',
       street: '',
@@ -116,45 +151,12 @@ const Profile: React.FC = () => {
       postalCode: '',
       isDefault: false,
     });
-    if (!user) return;
-    await updateAddressOnBackend(finalAddresses);
-    // Refetch full profile after update
-    const res = await fetch(`${API_URL}/api/users/${user.uid}`);
-    if (res.ok) {
-      const profile = await res.json();
-      setProfileData(profile);
-      setAddresses(profile.addresses || []);
-    }
   };
 
-  const handleSetDefaultAddress = async (id: number) => {
-    const updatedAddresses = addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id
-    }));
-    setAddresses(updatedAddresses);
-    await updateAddressOnBackend(updatedAddresses);
-  };
-
-  const handleRemoveAddress = async (id: number) => {
-    if (addresses.length === 1) {
-      alert('You must have at least one address.');
-      return;
-    }
-    const updatedAddresses = addresses.filter(addr => addr.id !== id);
-    setAddresses(updatedAddresses);
-    await updateAddressOnBackend(updatedAddresses);
-  };
-
-  const updateAddressOnBackend = async (addressesArr: any[]) => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-    await fetch(`${API_URL}/api/users/${user.uid}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ addresses: addressesArr }),
-    });
+  const handleSetDefaultAddress = async (id: any) => {
+    const addr = addresses.find(a => a._id === id || a.id === id);
+    if (!addr) return;
+    await handleAddOrEditAddress({ ...addr, isDefault: true }, addr._id || addr.id);
   };
 
   const handleChangePassword = async () => {
@@ -278,10 +280,8 @@ const Profile: React.FC = () => {
     const res = await fetch(`${API_URL}/api/users/${uid}`);
     if (res.ok) {
       const profile = await res.json();
-      setProfileData((prev: any) => ({
-        ...prev,
-        ...profile,
-      }));
+      setProfileData(profile);
+      setAddresses(profile.addresses || []);
     }
   };
 
@@ -306,6 +306,9 @@ const Profile: React.FC = () => {
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
   const defaultAddress = addresses.find(addr => addr.isDefault);
+
+  console.log('Profile Data:', profileData);
+  console.log('Is Profile Complete:', isProfileComplete());
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -490,6 +493,29 @@ const Profile: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                       />
+                      {isEditing && (
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                          <i className="fas fa-pencil-alt text-gray-400"></i>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="preferredPaymentMethod" className="block text-sm font-medium text-gray-700">Preferred Payment Method</label>
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <select
+                        name="preferredPaymentMethod"
+                        id="preferredPaymentMethod"
+                        className="focus:ring-orange-500 focus:border-orange-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md"
+                        value={profileData.preferredPaymentMethod || ''}
+                        onChange={handleSelectChange}
+                        disabled={!isEditing}
+                      >
+                        <option value="">Select a payment method</option>
+                        {VALID_PAYMENT_METHODS.map((method) => (
+                          <option key={method} value={method}>{method}</option>
+                        ))}
+                      </select>
                       {isEditing && (
                         <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                           <i className="fas fa-pencil-alt text-gray-400"></i>
@@ -856,7 +882,9 @@ const Profile: React.FC = () => {
                             </span>
                           ) : (
                             <button
-                              onClick={() => handleSetDefaultAddress(addr.id)}
+                              onClick={async () => {
+                                await handleSetDefaultAddress(addr._id || addr.id);
+                              }}
                               className="text-sm text-orange-600 hover:text-orange-700 mt-1"
                               title="Set as default address"
                             >
@@ -867,7 +895,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => handleRemoveAddress(addr.id)}
+                          onClick={() => handleRemoveAddress(addr._id || addr.id)}
                           className="text-sm text-red-600 hover:text-red-700"
                           title="Remove address"
                         >

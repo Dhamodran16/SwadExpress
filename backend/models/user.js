@@ -37,4 +37,15 @@ userSchema.pre('save', function(next) {
   next();
 });
 
+// Cleanup middleware when user is deleted
+userSchema.pre('remove', async function(next) {
+  try {
+    // Delete all orders associated with this user
+    await this.model('Order').deleteMany({ userFirebaseUid: this.firebaseUid });
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default mongoose.model('User', userSchema); 

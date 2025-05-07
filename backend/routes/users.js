@@ -1,5 +1,6 @@
 import express from 'express';
 import User from '../models/user.js';
+import Order from '../models/order.js';
 
 const router = express.Router();
 
@@ -39,10 +40,10 @@ router.post('/', async (req, res, next) => {
 // Update user profile
 router.patch('/:firebaseUid', async (req, res, next) => {
   try {
-    const { addresses } = req.body;
+    const updateFields = req.body;
     const user = await User.findOneAndUpdate(
       { firebaseUid: req.params.firebaseUid },
-      { $set: { addresses } },
+      { $set: updateFields },
       { new: true }
     );
     if (!user) {
@@ -59,13 +60,18 @@ router.patch('/:firebaseUid', async (req, res, next) => {
 // Delete user profile
 router.delete('/:firebaseUid', async (req, res, next) => {
   try {
+    // Find and delete all orders associated with this user
+    await Order.deleteMany({ userFirebaseUid: req.params.firebaseUid });
+    
+    // Delete the user
     const user = await User.findOneAndDelete({ firebaseUid: req.params.firebaseUid });
     if (!user) {
       const error = new Error('User not found');
       error.status = 404;
       throw error;
     }
-    res.json({ message: 'User deleted' });
+    
+    res.json({ message: 'User and all associated data deleted successfully' });
   } catch (err) {
     next(err);
   }
@@ -88,9 +94,15 @@ router.patch('/:firebaseUid/address', async (req, res, next) => {
       // Add new address
       user.addresses.push(address);
     }
-    // If the new/edited address is marked as default, update defaultAddress
+    // If the new/edited address is marked as default, update all others to isDefault: false
     if (address && address.isDefault) {
-      user.defaultAddress = [address.street, address.city, address.state, address.postalCode].filter(Boolean).join(', ');
+      user.addresses = user.addresses.map(a => {
+        const isThis = a.label === address.label && a.street === address.street && a.city === address.city && a.state === address.state && a.postalCode === address.postalCode;
+        return { ...a.toObject?.() || a, isDefault: isThis };
+      });
+      const deliveryAddrString = [address.street, address.city, address.state, address.postalCode].filter(Boolean).join(', ');
+      user.defaultAddress = deliveryAddrString;
+      user.deliveryAddress = deliveryAddrString;
     }
     user.updatedAt = new Date();
     await user.save();
@@ -109,7 +121,24 @@ router.delete('/:firebaseUid/address/:addressId', async (req, res, next) => {
       error.status = 404;
       throw error;
     }
+    // Find the address to delete
+    const addressToDelete = user.addresses.find(a => a._id.toString() === req.params.addressId);
+    const wasDefault = addressToDelete && addressToDelete.isDefault;
+    // Remove the address
     user.addresses = user.addresses.filter(a => a._id.toString() !== req.params.addressId);
+    // If the deleted address was default and there are addresses left, set the first as default
+    if (wasDefault && user.addresses.length > 0) {
+      user.addresses = user.addresses.map((a, i) => ({ ...a.toObject?.() || a, isDefault: i === 0 }));
+      const first = user.addresses[0];
+      const deliveryAddrString = [first.street, first.city, first.state, first.postalCode].filter(Boolean).join(', ');
+      user.defaultAddress = deliveryAddrString;
+      user.deliveryAddress = deliveryAddrString;
+    }
+    // If no addresses left, clear default/delivery address
+    if (user.addresses.length === 0) {
+      user.defaultAddress = '';
+      user.deliveryAddress = '';
+    }
     user.updatedAt = new Date();
     await user.save();
     res.json(user);
