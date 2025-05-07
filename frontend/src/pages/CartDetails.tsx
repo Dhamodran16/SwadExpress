@@ -17,42 +17,6 @@ const CartDetails: React.FC = () => {
   const [statusStep, setStatusStep] = useState<'processing' | 'preparing' | 'outForDelivery' | 'delivered'>('processing');
   const [orderTime, setOrderTime] = useState<Date | null>(null);
 
-  function getAverageDeliveryTime(items: any[]) {
-    if (!items || items.length === 0) return 'N/A';
-    let totalMin = 0, totalMax = 0, count = 0;
-    items.forEach((item: any) => {
-      if (item.deliveryTime) {
-        // deliveryTime should be a string like "30-45"
-        const [min, max] = item.deliveryTime.split('-').map(Number);
-        if (!isNaN(min) && !isNaN(max)) {
-          totalMin += min;
-          totalMax += max;
-          count++;
-        }
-      }
-    });
-    if (count === 0) return 'N/A';
-    const avgMin = Math.round(totalMin / count);
-    const avgMax = Math.round(totalMax / count);
-    return `${avgMin}-${avgMax} minutes`;
-  }
-
-  function generateOrderNumber() {
-    const randomNum = Math.floor(10000 + Math.random() * 90000);
-    return `ORD-${randomNum}`;
-  }
-  // Order details
-  const orderNumber = generateOrderNumber();
-  const estimatedDelivery = "30-45 minutes";
-  const deliveryAddress = {
-    street: '123 Main Street',
-    apt: 'Apt 4B',
-    city: 'San Francisco',
-    state: 'CA',
-    zip: '94105'
-  };
-  const paymentMethod = "Visa •••• 4582";
- 
   // Calculate cart totals
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = 3.99;
@@ -178,7 +142,7 @@ const CartDetails: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center gap-4 text-center">
             <div className="bg-gray-100 px-6 py-3 rounded-lg">
               <p className="text-sm text-gray-600">Order Number</p>
-              <p className="font-bold text-gray-800">{orderNumber}</p>
+              <p className="font-bold text-gray-800">{order.orderNumber}</p>
             </div>
             <div className="bg-gray-100 px-6 py-3 rounded-lg">
               <p className="text-sm text-gray-600">Estimated Delivery</p>

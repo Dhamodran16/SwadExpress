@@ -34,8 +34,6 @@ function getAverageDeliveryTime(items: any[]): string {
 
 const OrderConf: React.FC = () => {
   const { items, getTotalPrice, clearCart } = useCart();
-  const [selectedAddress, setSelectedAddress] = useState(0);
-  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [deliveryType, setDeliveryType] = useState('asap');
   const [selectedTime, setSelectedTime] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('credit');

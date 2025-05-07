@@ -19,7 +19,6 @@ const Profile: React.FC = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -109,7 +108,6 @@ const Profile: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setSelectedImage(ev.target?.result as string);
         setProfileData((prev: any) => ({ ...prev, photoURL: ev.target?.result as string }));
       };
       reader.readAsDataURL(file);
@@ -157,101 +155,6 @@ const Profile: React.FC = () => {
     const addr = addresses.find(a => a._id === id || a.id === id);
     if (!addr) return;
     await handleAddOrEditAddress({ ...addr, isDefault: true }, addr._id || addr.id);
-  };
-
-  const handleChangePassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-      errorModal.innerHTML = `
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-          <div class="text-center">
-            <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-900 mb-2">Password Mismatch</h3>
-            <p class="text-gray-600 mb-4">New password and confirm password do not match.</p>
-            <button class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors !rounded-button">
-              Close
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
-      const closeButton = errorModal.querySelector('button');
-      closeButton?.addEventListener('click', () => errorModal.remove());
-      return;
-    }
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error('Not authenticated');
-      const res = await fetch(`${API_URL}/api/users/${user.uid}/password`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: profileData.password === null ? undefined : passwordData.currentPassword,
-          newPassword: passwordData.newPassword
-        })
-      });
-      if (!res.ok) {
-        const errorModal = document.createElement('div');
-        errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-        errorModal.innerHTML = `
-          <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="text-center">
-              <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-              <h3 class="text-xl font-bold text-gray-900 mb-2">Password Not Matched</h3>
-              <p class="text-gray-600 mb-4">Current password is incorrect.</p>
-              <button class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors !rounded-button">
-                Close
-              </button>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(errorModal);
-        const closeButton = errorModal.querySelector('button');
-        closeButton?.addEventListener('click', () => errorModal.remove());
-        return;
-      }
-      setShowPasswordModal(false);
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      // Refetch profile after password update
-      await fetchProfileFromBackend(user.uid);
-      const successModal = document.createElement('div');
-      successModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-      successModal.innerHTML = `
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-          <div class="text-center">
-            <i class="fas fa-check-circle text-green-500 text-5xl mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-900 mb-2">Password Updated</h3>
-            <p class="text-gray-600 mb-4">Your password has been successfully updated.</p>
-            <button class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors !rounded-button">
-              Close
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(successModal);
-      const closeButton = successModal.querySelector('button');
-      closeButton?.addEventListener('click', () => successModal.remove());
-    } catch (err) {
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-      errorModal.innerHTML = `
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-          <div class="text-center">
-            <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-900 mb-2">Error</h3>
-            <p class="text-gray-600 mb-4">Failed to update password.</p>
-            <button class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors !rounded-button">
-              Close
-            </button>
-        </div>
-      </div>
-      `;
-      document.body.appendChild(errorModal);
-      const closeButton = errorModal.querySelector('button');
-      closeButton?.addEventListener('click', () => errorModal.remove());
-    }
   };
 
   const scrollToTop = () => {
@@ -304,11 +207,6 @@ const Profile: React.FC = () => {
   }, [user]);
 
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
-
-  const defaultAddress = addresses.find(addr => addr.isDefault);
-
-  console.log('Profile Data:', profileData);
-  console.log('Is Profile Complete:', isProfileComplete());
 
   return (
     <div className="min-h-screen bg-gray-50">

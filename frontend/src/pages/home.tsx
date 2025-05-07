@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUserCircle } from 'react-icons/fa';
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CartIcon from '../components/CartIcon';
 import { useCart } from '../context/CartContext';
@@ -52,10 +52,9 @@ const RestaurantMenu: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { addItem } = useCart();
   const [userInitial, setUserInitial] = useState('C');
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -164,55 +163,11 @@ const RestaurantMenu: React.FC = () => {
     }
   });
 
-  // Get menu items for a specific restaurant
-  const getRestaurantMenuItems = (restaurantId: string) => {
-    return menuItems.filter(item => item.restaurantId._id === restaurantId && item.isAvailable);
-  };
-
-  // Mock login function
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  // Mock logout function
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
-
   // Add this helper inside the component
   const formatAddress = (address: any) => {
     if (!address) return '';
     if (typeof address === 'string') return address;
     return [address.street, address.city, address.state, address.zipCode].filter(Boolean).join(', ');
-  };
-
-  const handleRestaurantClick = (id: string) => {
-    navigate(`/restaurant/${id}`);
-  };
-
-  const handleAddToCart = (item: MenuItem) => {
-    try {
-      if (!item.isAvailable) {
-        toast.error('This item is currently unavailable');
-        return;
-      }
-
-      addItem({
-        id: item._id ?? item.id ?? '',
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        image: item.image,
-        restaurantId: item.restaurantId._id,
-        restaurantName: item.restaurantId.name,
-        deliveryTime: item.deliveryTime || ''
-      });
-      
-      toast.success(`${item.name} added to cart!`);
-    } catch (error) {
-      console.error('Error adding item to cart:', error);
-      toast.error('Failed to add item to cart. Please try again.');
-    }
   };
 
   if (loading) {

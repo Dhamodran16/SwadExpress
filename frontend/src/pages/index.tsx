@@ -6,7 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { restaurantAPI, menuAPI } from '../services/api';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -43,15 +43,14 @@ interface MenuItem {
 
 const Index: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [location, setLocation] = useState('Erode, 638052');
+  const [location] = useState('Erode, 638052');
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortOption, setSortOption] = useState('Rating');
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('Guest');
   const [userInitial, setUserInitial] = useState('U');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,17 +69,13 @@ const Index: React.FC = () => {
         const displayName = user.displayName || '';
         const email = user.email || '';
         if (displayName.length > 0) {
-          setUserName(displayName);
           setUserInitial(displayName[0].toUpperCase());
         } else if (email.length > 0) {
-          setUserName(email);
           setUserInitial(email[0].toUpperCase());
         } else {
-          setUserName('Guest');
           setUserInitial('U');
         }
       } else {
-        setUserName('Guest');
         setUserInitial('U');
       }
     });
@@ -164,30 +159,11 @@ const Index: React.FC = () => {
     }
   });
 
-  // Get menu items for a specific restaurant
-  const getRestaurantMenuItems = (restaurantId: string) => {
-    return menuItems.filter(item => item.restaurantId._id === restaurantId && item.isAvailable);
-  };
-
-  // Mock login function
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  // Mock logout function
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
-
   // Add this helper inside the component
   const formatAddress = (address: any) => {
     if (!address) return '';
     if (typeof address === 'string') return address;
     return [address.street, address.city, address.state, address.zipCode].filter(Boolean).join(', ');
-  };
-
-  const handleRestaurantClick = (id: string) => {
-    navigate(`/restaurant/${id}`);
   };
 
   const handleViewOrders = () => {
