@@ -6,7 +6,6 @@ import { FaUserCircle } from 'react-icons/fa';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CartIcon from '../components/CartIcon';
-import { useCart } from '../context/CartContext';
 import { getAuth } from 'firebase/auth';
 import { restaurantAPI, menuAPI } from '../services/api';
 import axios from 'axios';
