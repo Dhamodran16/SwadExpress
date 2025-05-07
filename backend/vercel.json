@@ -15,6 +15,7 @@
   "env": {
     "node_env": "production",
     "mongodb_uri": "@mongodb_uri",
+    "jwt_secret": "@jwt_secret",
     "frontend_url": "@frontend_url"
   }
 } 
