@@ -8,6 +8,9 @@ import 'react-toastify/dist/ReactToastify.css';
 import CartIcon from '../components/CartIcon';
 import { useCart } from '../context/CartContext';
 import { getAuth } from 'firebase/auth';
+import { restaurantAPI, menuAPI } from '../services/api';
+import axios from 'axios';
+
 
 interface Restaurant {
   _id: string;
@@ -55,7 +58,7 @@ const RestaurantMenu: React.FC = () => {
   const { addItem } = useCart();
   const [userInitial, setUserInitial] = useState('C');
 
-  const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // Cuisine types for filter
   const cuisineTypes = ['All', 'Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Japanese'];
@@ -69,22 +72,38 @@ const RestaurantMenu: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+        // Check if API_URL is properly set
+        if (!API_URL) {
+          throw new Error('API URL is not configured. Please check your environment variables.');
+        }
         // Fetch restaurants
-        const restaurantsResponse = await fetch(`${API_URL}/api/restaurants`);
-        if (!restaurantsResponse.ok) {
-          throw new Error('Failed to fetch restaurants');
+        const restaurantsResponse = await restaurantAPI.getAll();
+        if (!restaurantsResponse?.data) {
+          throw new Error('Invalid response format from restaurants API');
         }
-        const restaurantsData = await restaurantsResponse.json();
-        setRestaurants(restaurantsData);
+        setRestaurants(restaurantsResponse.data);
         // Fetch menu items
-        const menuItemsResponse = await fetch(`${API_URL}/api/menu`);
-        if (!menuItemsResponse.ok) {
-          throw new Error('Failed to fetch menu items');
+        const menuItemsResponse = await menuAPI.getAll();
+        if (!menuItemsResponse?.data) {
+          throw new Error('Invalid response format from menu API');
         }
-        const menuItemsData = await menuItemsResponse.json();
-        setMenuItems(menuItemsData);
+        setMenuItems(menuItemsResponse.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        let errorMessage = 'Failed to fetch data';
+        if (axios.isAxiosError(err)) {
+          if (err.message.includes('Network Error')) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection or if the backend is running.';
+          } else if (err.response?.status === 404) {
+            errorMessage = 'API endpoint not found. Please check the server configuration.';
+          } else if (err.response?.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          }
+        } else if (err instanceof Error) {
+          if (err.message.includes('API URL')) {
+            errorMessage = err.message;
+          }
+        }
+        setError(errorMessage);
         console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
@@ -99,7 +118,9 @@ const RestaurantMenu: React.FC = () => {
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
-    console.log(user.uid); // This is the firebaseUid
+    if (user) {
+      console.log(user.uid); // This is the firebaseUid
+    }
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsLoggedIn(!!user);
       if (user) {

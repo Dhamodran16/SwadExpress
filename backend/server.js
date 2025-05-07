@@ -20,7 +20,7 @@ const corsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = process.env.node_env === 'production'
       ? [process.env.frontend_url]
-      : ['http://localhost:5173', 'http://localhost:5174'];
+      : [];
 
     // Allow requests with no origin like mobile apps or curl
     if (!origin || allowedOrigins.includes(origin)) {

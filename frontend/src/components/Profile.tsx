@@ -6,7 +6,7 @@ import { FaUserCircle } from 'react-icons/fa';
 
 const VALID_PAYMENT_METHODS = ['Google Pay', 'Apple Pay', 'Cash on Delivery', 'Credit/Debit Card'];
 
-const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Profile: React.FC = () => {
   const auth = getAuth();

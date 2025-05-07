@@ -12,10 +12,10 @@ function generateOrderNumber() {
   return `ORD-${randomNum}`;
 }
 
-function getAverageDeliveryTime(items) {
+function getAverageDeliveryTime(items: any[]): string {
   if (!items || items.length === 0) return 'N/A';
   let totalMin = 0, totalMax = 0, count = 0;
-  items.forEach(item => {
+  items.forEach((item: any) => {
     if (item.deliveryTime) {
       // deliveryTime should be a string like "30-45"
       const [min, max] = item.deliveryTime.split('-').map(Number);
@@ -221,23 +221,6 @@ const OrderConf: React.FC = () => {
     if (method === 'digital') {
       setDigitalPaymentCode(generatePaymentCode());
     }
-  };
-
-  const getAverageDeliveryTime = () => {
-    if (!items.length) return 'N/A';
-    let totalMin = 0, totalMax = 0, count = 0;
-    items.forEach(item => {
-      if (item.deliveryTime) {
-        const [min, max] = item.deliveryTime.split('-').map(Number);
-        totalMin += min;
-        totalMax += max;
-        count++;
-      }
-    });
-    if (!count) return 'N/A';
-    const avgMin = Math.round(totalMin / count);
-    const avgMax = Math.round(totalMax / count);
-    return `${avgMin}-${avgMax} minutes`;
   };
 
   useEffect(() => {
@@ -651,7 +634,7 @@ const OrderConf: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Estimated Delivery Time</p>
                     <p className="font-medium text-gray-800">
-                      {getAverageDeliveryTime() === 'N/A' ? '30-45 minutes' : getAverageDeliveryTime()}
+                      {getAverageDeliveryTime(items) === 'N/A' ? '30-45 minutes' : getAverageDeliveryTime(items)}
                     </p>
                   </div>
                 </div>

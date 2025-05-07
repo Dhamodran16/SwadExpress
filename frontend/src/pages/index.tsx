@@ -6,8 +6,9 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { restaurantAPI, menuAPI } from '../services/api';
+import axios, { AxiosError } from 'axios';
 
-const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface Restaurant {
   _id: string;
@@ -92,12 +93,44 @@ const Index: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const restaurantsData = await restaurantAPI.getAll();
-        setRestaurants(restaurantsData.data);
-        const menuItemsData = await menuAPI.getAll();
-        setMenuItems(menuItemsData.data);
+        
+        // Check if API_URL is properly set
+        if (!API_URL) {
+          throw new Error('API URL is not configured. Please check your environment variables.');
+        }
+
+        // Fetch restaurants with error handling
+        const restaurantsResponse = await restaurantAPI.getAll();
+        if (!restaurantsResponse?.data) {
+          throw new Error('Invalid response format from restaurants API');
+        }
+        setRestaurants(restaurantsResponse.data);
+
+        // Fetch menu items with error handling
+        const menuItemsResponse = await menuAPI.getAll();
+        if (!menuItemsResponse?.data) {
+          throw new Error('Invalid response format from menu API');
+        }
+        setMenuItems(menuItemsResponse.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching data:', err);
+        let errorMessage = 'Failed to fetch data';
+        
+        if (axios.isAxiosError(err)) {
+          if (err.message.includes('Network Error')) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+          } else if (err.response?.status === 404) {
+            errorMessage = 'API endpoint not found. Please check the server configuration.';
+          } else if (err.response?.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          }
+        } else if (err instanceof Error) {
+          if (err.message.includes('API URL')) {
+            errorMessage = err.message;
+          }
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }

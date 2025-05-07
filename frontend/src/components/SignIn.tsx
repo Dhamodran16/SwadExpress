@@ -8,7 +8,7 @@ import styles from '../styles/signin.module.css'; // Ensure CSS file is responsi
 import signinImage from '../images/signin.png';
 import axios from 'axios';
 
-const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');

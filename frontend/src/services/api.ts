@@ -1,13 +1,14 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+
+console.log('API URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
 });
 
 // Request interceptor
@@ -20,6 +21,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -28,9 +30,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/signin';
+    if (error.code === 'ERR_NETWORK') {
+      console.error('Network error - Please check if the backend server is running');
     }
     return Promise.reject(error);
   }
@@ -40,11 +41,11 @@ api.interceptors.response.use(
 export const restaurantAPI = {
   getAll: () => api.get('/api/restaurants'),
   getById: (id: string) => api.get(`/api/restaurants/${id}`),
-  getMenu: (id: string) => api.get(`/api/restaurants/${id}/menu`),
 };
 
 export const menuAPI = {
   getAll: () => api.get('/api/menu'),
+  getByRestaurantId: (restaurantId: string) => api.get(`/api/menu/restaurant/${restaurantId}`),
   getById: (id: string) => api.get(`/api/menu/${id}`),
 };
 
@@ -56,10 +57,16 @@ export const orderAPI = {
 };
 
 export const userAPI = {
-  signup: (data: any) => api.post('/api/users/signup', data),
-  signin: (data: any) => api.post('/api/users/signin', data),
-  getProfile: () => api.get('/api/users/profile'),
-  updateProfile: (data: any) => api.put('/api/users/profile', data),
+  // Signup: POST /api/users
+  signup: (data: any) => api.post('/api/users', data),
+  // Get profile: GET /api/users/:firebaseUid
+  getProfile: (firebaseUid: string) => api.get(`/api/users/${firebaseUid}`),
+  // Update profile: PATCH /api/users/:firebaseUid
+  updateProfile: (firebaseUid: string, data: any) => api.patch(`/api/users/${firebaseUid}`, data),
+  // Delete profile: DELETE /api/users/:firebaseUid
+  deleteProfile: (firebaseUid: string) => api.delete(`/api/users/${firebaseUid}`),
+  // Update password: PATCH /api/users/:firebaseUid/password
+  updatePassword: (firebaseUid: string, data: any) => api.patch(`/api/users/${firebaseUid}/password`, data),
 };
 
 export default api;
