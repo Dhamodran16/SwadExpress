@@ -34,7 +34,7 @@ interface Order {
   orderNumber: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
 const OrderHistory: React.FC = () => {  
   const [orders, setOrders] = useState<Order[]>([]);

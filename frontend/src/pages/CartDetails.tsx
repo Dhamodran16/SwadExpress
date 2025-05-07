@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
 const CartDetails: React.FC = () => {
   const navigate = useNavigate();

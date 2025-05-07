@@ -55,7 +55,7 @@ const RestaurantMenu: React.FC = () => {
   const { addItem } = useCart();
   const [userInitial, setUserInitial] = useState('C');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+  const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
   // Cuisine types for filter
   const cuisineTypes = ['All', 'Indian', 'Italian', 'Chinese', 'Mexican', 'Thai', 'Japanese'];

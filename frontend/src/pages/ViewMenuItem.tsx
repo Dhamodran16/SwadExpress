@@ -45,7 +45,7 @@ const ViewMenuItem: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+  const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
   useEffect(() => {
     const fetchData = async () => {

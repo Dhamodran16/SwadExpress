@@ -9,7 +9,7 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5003',
+        target: process.env.vite_api_url || 'http://localhost:5003',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),

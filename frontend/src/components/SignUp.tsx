@@ -9,7 +9,7 @@ import styles from '../styles/signup.module.css';
 import signupImage from '../images/signup.png';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');

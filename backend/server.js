@@ -18,8 +18,8 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-      ? [process.env.FRONTEND_URL]
+    const allowedOrigins = process.env.node_env === 'production'
+      ? [process.env.frontend_url]
       : ['http://localhost:5173', 'http://localhost:5174'];
 
     // Allow requests with no origin like mobile apps or curl
@@ -49,10 +49,10 @@ const mongooseOptions = {
 };
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.mongodb_uri;
 
 if (!MONGODB_URI) {
-  console.error('❌ MONGODB_URI is not defined in environment variables');
+  console.error('❌ mongodb_uri is not defined in environment variables');
   process.exit(1);
 }
 
@@ -80,7 +80,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     database: dbStatus,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.node_env || 'development'
   });
 });
 
@@ -99,8 +99,8 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5003;
-const HOST = process.env.HOST || '0.0.0.0';
+const PORT = process.env.port || 5003;
+const HOST = process.env.host || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);

@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { restaurantAPI, menuAPI } from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5003';
+const API_URL = import.meta.env.vite_api_url || 'http://localhost:5003';
 
 interface Restaurant {
   _id: string;
