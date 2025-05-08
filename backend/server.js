@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -9,9 +11,6 @@ import menuRoutes from './routes/menuRoutes.js';
 import ordersRouter from './routes/orders.js';
 import usersRouter from './routes/users.js';
 import { errorHandler } from './middleware/errorHandler.js';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 
@@ -99,8 +98,8 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.port || 5003;
-const HOST = process.env.host || '0.0.0.0';
+const PORT = process.env.port;
+const HOST = process.env.host;
 
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);
