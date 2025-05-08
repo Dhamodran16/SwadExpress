@@ -16,6 +16,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import Home from './pages/home';
 import Index from './pages/index';
 import NotFound from './components/NotFound';
+import usePassiveEvents from './hooks/usePassiveEvents';
 
 // ProtectedRoute component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -106,6 +107,8 @@ const AppRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  usePassiveEvents();
+  
   return (
     <>
       <AppRoutes />
