@@ -17,7 +17,7 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: [
-    'https://food-express-six.vercel.app',
+    'https://swadexpress.onrender.com',
     'http://localhost:5174'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
