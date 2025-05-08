@@ -16,25 +16,19 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.node_env === 'production'
-      ? [process.env.frontend_url]
-      : [];
-
-    // Allow requests with no origin like mobile apps or curl
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy violation: Origin ${origin} not allowed`));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  origin: [
+    'https://food-express-kc0qh1pdo-dhamodran17-gmailcoms-projects.vercel.app',
+    'http://localhost:5174'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan('dev'));
