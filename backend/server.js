@@ -17,8 +17,7 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: [
-    'https://food-express-six.vercel.app
-    ',
+    'https://food-express-six.vercel.app',
     'http://localhost:5174'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
