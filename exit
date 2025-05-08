@@ -1,0 +1,42 @@
+[33m89adb921[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m chore: resolve conflicts and remove vercel.json files
+[33m84d2fd9e[m chore: update .env
+[33m23dd1b86[m fix: add static.json for SPA routing on Render
+[33m41a068da[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m server.js
+[33m4f879ff3[m server.js
+[33ma8b0929b[m server.js
+[33m4f6298d6[m .env
+[33m95c6f538[m .env
+[33m5423b057[m chore: add build configuration for Vercel deployment
+[33m42dc5a40[m fix: update CORS configuration to allow frontend domain and add CORS headers in vercel.json
+[33m63d528b7[m initial commit
+[33m833c0b68[m .env
+[33m13219783[m initial commit
+[33m6058ccb8[m initial commit
+[33m6bb29d16[m initial commit
+[33me8e79f8c[m Remove .vscode directory from git tracking (keep local only)
+[33m77137c0d[m Remove unnecessary server directory from frontend
+[33m3e8f9c48[m PS C:\Users\dhamo\empty\my-react-ts-app> git push To https://github.com/Dhamodran16/SwadExpress.git  ! [rejected]          main -> main (fetch first) error: failed to push some refs to 'https://github.com/Dhamodran16/SwadExpress.git' hint: Updates were rejected because the remote contains work that you do not hint: have locally. This is usually caused by another repository pushing to hint: the same ref. If you want to integrate the remote changes, use hint: 'git pull' before pushing again. hint: See the 'Note about fast-forwards' in 'git push --help' for details.Merge branch 'main' of https://github.com/Dhamodran16/SwadExpress
+[33me51f0048[m Sync local changes: remove files deleted locally and commit all updates
+[33m446597bc[m Remove all Firebase integration from backend (code and config)
+[33m5cb060f2[m Add build script and update configuration for backend deployment
+[33m6332b936[m api.ts
+[33m27ca0859[m fix: restore jwt_secret env var in backend vercel config
+[33mf5be2410[m chore: update vercel configs
+[33ma1e3e758[m chore: remove debug console.log for API URL
+[33m23b21fa9[m chore: remove unused code and fix all build errors in frontend
+[33mfa79d5c8[m Fix: use correct API URL from .env and robust error handling for frontend/backend integration
+[33mf9593669[m refactor: use lowercase environment variable names in frontend and backend
+[33m6a6d0b64[m Update README with project documentation
+[33mbb4db474[m Initial commit: Food delivery app with frontend and backend
+[33mf17ea3b7[m commited
+[33m9acabbd4[m Initial commit
+[33m2ec1f1c8[m Updated user model and profile component
+[33m2e9c1585[m Merge remote changes
+[33m51d73228[m Initial commit or your commit message
+[33mf42fd0e6[m Initial commit
+[33mfbb432c0[m commit
+[33me774f022[m commit
+[33mdbfab94f[m Initial commit
+[33ma69c8f9c[m Merge branch 'main' of https://github.com/Dhamodran16/FoodExpress git push -u origin main
+[33mec32cddd[m Initial commit
+[33m071ffdb6[m Initial commit
