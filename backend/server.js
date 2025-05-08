@@ -17,7 +17,7 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: [
-    'https://swadexpress.onrender.com',
+    'https://foodexpress-0djs.onrender.com',
     'http://localhost:5174'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
